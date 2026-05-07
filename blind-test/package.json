@@ -9,8 +9,12 @@
     "lint": "eslint",
     "format": "prettier \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yaml,yml}\" --write",
     "format:check": "prettier \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yaml,yml}\" --check",
+    "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --project unit",
-    "test:e2e": "playwright test"
+    "test:integration": "vitest run --project integration --passWithNoTests",
+    "test:arch": "vitest run --project arch --passWithNoTests",
+    "test:e2e": "playwright test",
+    "test": "vitest run --project unit --project integration --project arch --passWithNoTests"
   },
   "dependencies": {
     "next": "16.2.5",

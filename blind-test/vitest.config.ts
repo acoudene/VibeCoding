@@ -13,9 +13,16 @@ export default defineConfig({
       },
       {
         test: {
-          name: "node",
+          name: "integration",
           environment: "node",
-          include: ["tests/integration/**/*.test.ts", "tests/architecture/**/*.test.ts"],
+          include: ["tests/integration/**/*.test.ts"],
+        },
+      },
+      {
+        test: {
+          name: "arch",
+          environment: "node",
+          include: ["tests/architecture/**/*.test.ts"],
         },
       },
     ],
