@@ -1,6 +1,36 @@
-import type { Player, PlayerId } from "./player";
+import { Player, type PlayerId } from "./player";
 import type { Playlist } from "./playlist";
 import { RoomCode } from "./room-code";
+
+export class RoomNotJoinableError extends Error {
+  constructor(status: RoomStatus) {
+    super(`Room is not joinable in status "${status}"`);
+    this.name = "RoomNotJoinableError";
+  }
+}
+
+export class RoomFullError extends Error {
+  constructor() {
+    super("Room is full (max 8 players)");
+    this.name = "RoomFullError";
+  }
+}
+
+export class DuplicateNicknameError extends Error {
+  constructor(nickname: string) {
+    super(`Nickname "${nickname}" is already taken in this room`);
+    this.name = "DuplicateNicknameError";
+  }
+}
+
+export class HostCannotJoinError extends Error {
+  constructor() {
+    super("The host cannot join the room as a player");
+    this.name = "HostCannotJoinError";
+  }
+}
+
+const MAX_PLAYERS = 8;
 
 export type RoomStatus = "lobby" | "playing" | "finished";
 
@@ -63,4 +93,39 @@ export class Room {
       createdAt: props.clock.now(),
     });
   }
+
+  join(props: { playerId: PlayerId; nickname: string }): Room {
+    if (this.status !== "lobby") throw new RoomNotJoinableError(this.status);
+    if (props.playerId === this.hostId) throw new HostCannotJoinError();
+    if (this.players.length >= MAX_PLAYERS) throw new RoomFullError();
+    const lower = props.nickname.toLowerCase();
+    if (this.players.some((p) => p.nickname.toLowerCase() === lower)) {
+      throw new DuplicateNicknameError(props.nickname);
+    }
+    const newPlayer = Player.create({ id: props.playerId, nickname: props.nickname });
+    return this.cloneWith({ players: [...this.players, newPlayer] });
+  }
+
+  private cloneWith(patch: Partial<RoomInternalState>): Room {
+    return new Room({
+      code: this.code,
+      hostId: this.hostId,
+      playlist: this.playlist,
+      status: this.status,
+      players: this.players,
+      rounds: this.rounds,
+      createdAt: this.createdAt,
+      ...patch,
+    });
+  }
 }
+
+type RoomInternalState = {
+  code: string;
+  hostId: PlayerId;
+  playlist: Playlist;
+  status: RoomStatus;
+  players: ReadonlyArray<Player>;
+  rounds: ReadonlyArray<Round>;
+  createdAt: number;
+};
