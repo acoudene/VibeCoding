@@ -11,7 +11,7 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 
 - **Public visé** : amis du créateur, parties à distance.
 - **Objectif primaire** : jouer ensemble, sans friction (pas de compte).
-- **Objectif secondaire** : projet d'apprentissage du *vibe coding* avec exigence de qualité Clean Code.
+- **Objectif secondaire** : projet d'apprentissage du _vibe coding_ avec exigence de qualité Clean Code.
 - **Hors-objectif v1** : monétisation, viralité, multi-tenant, modération, contenu pré-livré.
 
 ## 3. Personas
@@ -22,6 +22,7 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 ## 4. User stories (v1)
 
 ### 4.1 Gestion des playlists (hôte)
+
 - **US-01** En tant qu'hôte, je peux créer une playlist en y ajoutant des morceaux (titre attendu, artiste attendu, URL ou ID YouTube, optionnel : timestamp de départ).
 - **US-02** En tant qu'hôte, je peux modifier ou supprimer un morceau.
 - **US-03** En tant qu'hôte, je peux dupliquer une playlist pour en faire une variante.
@@ -29,18 +30,21 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 - **US-05** Mes playlists persistent entre mes sessions sur le même navigateur (LocalStorage v1).
 
 ### 4.2 Création / cycle de vie d'une salle
+
 - **US-10** En tant qu'hôte, je peux créer une salle à partir d'une playlist. La salle reçoit un code court à 6 caractères (alphanumérique non ambigu, ex. exclu O/0/I/1) et une URL partageable qui encode ce code.
 - **US-11** En tant qu'hôte, je peux ouvrir/fermer la salle aux nouveaux entrants à tout moment.
 - **US-12** Une salle est éphémère : à la fin de la partie (ou après un timeout d'inactivité raisonnable), elle est détruite avec ses scores.
 - **US-13** Une salle accepte au maximum 8 joueurs simultanés (hôte non compté).
 
 ### 4.3 Rejoindre une partie (joueur)
+
 - **US-20** En tant que joueur, je rejoins via un code à 6 caractères ou via un lien direct.
 - **US-21** Je saisis un pseudo (validation : non vide, unique dans la salle, ≤ 20 caractères).
 - **US-22** Je vois la liste des autres joueurs et l'état de la salle (lobby, en cours, terminée).
 - **US-23** En cas de déconnexion brève, je peux rejoindre la salle avec le même pseudo et reprendre mon score.
 
 ### 4.4 Déroulé d'une manche
+
 - **US-30** L'hôte démarre la partie depuis le lobby. La salle passe à l'état "en cours".
 - **US-31** Pour chaque morceau, l'hôte déclenche la lecture. Tous les joueurs entendent l'audio simultanément (à la latence YouTube près).
 - **US-32** Chaque joueur dispose d'un bouton "Buzz" très visible. Le premier buzz remporte la main ; l'horodatage fait foi côté serveur de temps réel.
@@ -52,42 +56,47 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 - **US-38** À la fin de la playlist, la salle affiche un classement final.
 
 ### 4.5 Visibilité et état
+
 - **US-40** Tous les participants voient en permanence : leur pseudo, le score de chacun, le numéro du morceau en cours (ex. "5 / 20"), l'état (lecture/buzz/validation/entre-tours).
 - **US-41** L'hôte voit en plus : la réponse attendue (titre + artiste) du morceau en cours, les contrôles de lecture, les contrôles de validation.
 - **US-42** Les joueurs ne voient **jamais** la réponse attendue avant qu'elle ne soit dévoilée.
 
 ## 5. Règles métier (synthèse pour le domaine)
 
-| Règle | Énoncé |
-|---|---|
-| R1 | Un buzz n'est valide que pendant l'état "lecture" du tour. |
-| R2 | Un seul joueur peut détenir le buzz à un instant donné. |
-| R3 | L'ordre d'arrivée des buzz est tranché côté serveur de temps réel (pas côté client). |
-| R4 | Un joueur ayant donné une réponse fausse sur un tour ne peut plus buzzer sur **ce tour**. |
-| R5 | Un tour se termine sur : Correct, Demi-point, Passer, ou tous les joueurs bloqués. |
-| R6 | Le score est entier ou demi (pas de négatif en v1). |
-| R7 | Quitter une salle en cours ne supprime pas le score du joueur ; il peut revenir avec le même pseudo. |
-| R8 | L'hôte n'est pas joueur (ne marque pas de points, ne buzze pas). |
+| Règle | Énoncé                                                                                               |
+| ----- | ---------------------------------------------------------------------------------------------------- |
+| R1    | Un buzz n'est valide que pendant l'état "lecture" du tour.                                           |
+| R2    | Un seul joueur peut détenir le buzz à un instant donné.                                              |
+| R3    | L'ordre d'arrivée des buzz est tranché côté serveur de temps réel (pas côté client).                 |
+| R4    | Un joueur ayant donné une réponse fausse sur un tour ne peut plus buzzer sur **ce tour**.            |
+| R5    | Un tour se termine sur : Correct, Demi-point, Passer, ou tous les joueurs bloqués.                   |
+| R6    | Le score est entier ou demi (pas de négatif en v1).                                                  |
+| R7    | Quitter une salle en cours ne supprime pas le score du joueur ; il peut revenir avec le même pseudo. |
+| R8    | L'hôte n'est pas joueur (ne marque pas de points, ne buzze pas).                                     |
 
 ## 6. Exigences non-fonctionnelles
 
 ### 6.1 Performance et temps réel
+
 - Latence buzz → notification "X a buzzé" sur tous les écrans : **< 500 ms** dans des conditions internet normales.
 - L'arbitrage du premier buzz est déterministe (pas de "ex æquo" perçu).
 - L'audio YouTube se met en pause **côté hôte** dès qu'un buzz est validé ; les joueurs n'ont pas besoin d'avoir l'audio chez eux (option par défaut : seul l'hôte diffuse, voir §8 question ouverte).
 
 ### 6.2 Coût
+
 - Hébergement gratuit en v1 : Vercel free tier pour l'app, free tier d'un service de pub-sub temps réel (Pusher Channels / Ably) pour les WebSockets.
 - Pas de base de données managée v1 (LocalStorage côté hôte + export/import JSON).
 - Aucune dépendance payante.
 
 ### 6.3 Qualité de code (contraintes architecturales)
+
 - **Clean Architecture** : séparation claire entre **domaine** (règles du jeu, agrégats Room/Round/Player), **application** (use cases : CreateRoom, JoinRoom, Buzz, ValidateAnswer, …), **infrastructure** (pub-sub, persistance LocalStorage, client YouTube), **présentation** (UI Next.js).
 - Le **domaine est pur** : pas de dépendance Next.js, pas d'I/O, pas d'horloge implicite. Les dépendances vers l'extérieur sont injectées via des **ports** (interfaces).
 - **Inversion de dépendance** : la couche application définit les ports, l'infrastructure les implémente.
 - Code TypeScript en mode strict.
 
 ### 6.4 Tests
+
 - **Unit** : couverture des règles métier du domaine ≥ 90 % (Vitest ou équivalent).
 - **Intégration** : use cases avec adaptateurs en mémoire (room lifecycle, buzz arbitrage, scoring).
 - **E2E** : Playwright sur les parcours critiques :
@@ -96,11 +105,13 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
   - parcours buzz faux puis re-buzz d'un autre joueur.
 
 ### 6.5 Sécurité minimale
+
 - Pas de PII collectée (pseudo libre uniquement).
 - Le code de salle n'est pas un secret : la sécurité repose sur l'éphémérité (≤ 8 places, salle détruite à la fin).
 - Aucune donnée envoyée à des tiers en dehors de YouTube IFrame API et du provider pub-sub.
 
 ### 6.6 Compatibilité
+
 - Desktop Chrome/Firefox/Safari récents.
 - Mobile : utilisable (le buzz doit fonctionner au tap), pas d'engagement de pixel-perfect responsive en v1.
 

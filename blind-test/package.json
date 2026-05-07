@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "format": "prettier \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yaml,yml}\" --write",
+    "format:check": "prettier \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yaml,yml}\" --check"
   },
   "dependencies": {
     "next": "16.2.5",
@@ -20,6 +22,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-simple-import-sort": "^13.0.0",
+    "prettier": "^3.8.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
