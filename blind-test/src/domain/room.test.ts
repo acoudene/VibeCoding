@@ -4,6 +4,7 @@ import { Playlist } from "./playlist";
 import {
   DuplicateNicknameError,
   HostCannotJoinError,
+  NicknameMismatchError,
   PlayerNotInRoomError,
   Room,
   RoomFullError,
@@ -194,5 +195,66 @@ describe("Room.leave", () => {
   it("throws PlayerNotInRoomError when the player is not in the room", () => {
     const room = makeRoomWith("p1");
     expect(() => room.leave("ghost")).toThrow(PlayerNotInRoomError);
+  });
+});
+
+describe("Room.reconnect", () => {
+  const baseRoom = () =>
+    Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+
+  it("flips connected back to true when nickname matches", () => {
+    const room = baseRoom()
+      .join({ playerId: "p1", nickname: "Alice" })
+      .leave("p1")
+      .reconnect({ playerId: "p1", nickname: "Alice" });
+    expect(room.players[0]?.connected).toBe(true);
+  });
+
+  it("matches nickname case-insensitively", () => {
+    const room = baseRoom()
+      .join({ playerId: "p1", nickname: "Alice" })
+      .leave("p1")
+      .reconnect({ playerId: "p1", nickname: "ALICE" });
+    expect(room.players[0]?.connected).toBe(true);
+  });
+
+  it("preserves the player's score on reconnect", () => {
+    const before = baseRoom().join({ playerId: "p1", nickname: "Alice" });
+    const after = before.leave("p1").reconnect({ playerId: "p1", nickname: "Alice" });
+    expect(after.players[0]?.score).toBe(before.players[0]?.score);
+  });
+
+  it("rejects when the nickname does not match", () => {
+    const room = baseRoom().join({ playerId: "p1", nickname: "Alice" }).leave("p1");
+    expect(() => room.reconnect({ playerId: "p1", nickname: "Bob" })).toThrow(
+      NicknameMismatchError,
+    );
+  });
+
+  it("rejects when the player is not in the room", () => {
+    const room = baseRoom();
+    expect(() => room.reconnect({ playerId: "ghost", nickname: "x" })).toThrow(
+      PlayerNotInRoomError,
+    );
+  });
+
+  it("is a no-op for an already-connected player with the right nickname", () => {
+    const room = baseRoom().join({ playerId: "p1", nickname: "Alice" });
+    const after = room.reconnect({ playerId: "p1", nickname: "Alice" });
+    expect(after.players[0]?.connected).toBe(true);
+    expect(after.players[0]?.id).toBe("p1");
+  });
+
+  it("returns a new room without mutating the original", () => {
+    const left = baseRoom().join({ playerId: "p1", nickname: "Alice" }).leave("p1");
+    const reconnected = left.reconnect({ playerId: "p1", nickname: "Alice" });
+    expect(left.players[0]?.connected).toBe(false);
+    expect(reconnected.players[0]?.connected).toBe(true);
+    expect(reconnected).not.toBe(left);
   });
 });

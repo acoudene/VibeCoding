@@ -37,6 +37,13 @@ export class PlayerNotInRoomError extends Error {
   }
 }
 
+export class NicknameMismatchError extends Error {
+  constructor(expected: string, got: string) {
+    super(`Nickname mismatch on reconnect: expected "${expected}", got "${got}"`);
+    this.name = "NicknameMismatchError";
+  }
+}
+
 const MAX_PLAYERS = 8;
 
 export type RoomStatus = "lobby" | "playing" | "finished";
@@ -118,6 +125,18 @@ export class Room {
     if (idx === -1) throw new PlayerNotInRoomError(playerId);
     const next = [...this.players];
     next[idx] = this.players[idx]!.setConnected(false);
+    return this.cloneWith({ players: next });
+  }
+
+  reconnect(props: { playerId: PlayerId; nickname: string }): Room {
+    const idx = this.players.findIndex((p) => p.id === props.playerId);
+    if (idx === -1) throw new PlayerNotInRoomError(props.playerId);
+    const existing = this.players[idx]!;
+    if (existing.nickname.toLowerCase() !== props.nickname.toLowerCase()) {
+      throw new NicknameMismatchError(existing.nickname, props.nickname);
+    }
+    const next = [...this.players];
+    next[idx] = existing.setConnected(true);
     return this.cloneWith({ players: next });
   }
 
