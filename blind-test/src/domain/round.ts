@@ -21,6 +21,7 @@ export class Round {
   readonly trackIndex: number;
   readonly status: RoundStatus;
   readonly currentBuzzer?: PlayerId;
+  readonly buzzedAt?: number;
   readonly blockedPlayerIds: ReadonlySet<PlayerId>;
   readonly outcome?: RoundOutcome;
 
@@ -28,12 +29,14 @@ export class Round {
     trackIndex: number;
     status: RoundStatus;
     currentBuzzer?: PlayerId;
+    buzzedAt?: number;
     blockedPlayerIds: ReadonlySet<PlayerId>;
     outcome?: RoundOutcome;
   }) {
     this.trackIndex = args.trackIndex;
     this.status = args.status;
     this.currentBuzzer = args.currentBuzzer;
+    this.buzzedAt = args.buzzedAt;
     this.blockedPlayerIds = args.blockedPlayerIds;
     this.outcome = args.outcome;
   }
@@ -50,13 +53,14 @@ export class Round {
     return this.blockedPlayerIds.has(playerId);
   }
 
-  markBuzzed(playerId: PlayerId): Round {
+  markBuzzed(playerId: PlayerId, at?: number): Round {
     if (this.status !== "playing") throw new InvalidRoundTransitionError(this.status, "buzz");
     if (this.blockedPlayerIds.has(playerId)) throw new PlayerAlreadyBlockedError(playerId);
     return new Round({
       trackIndex: this.trackIndex,
       status: "buzzed",
       currentBuzzer: playerId,
+      buzzedAt: at,
       blockedPlayerIds: this.blockedPlayerIds,
     });
   }
@@ -73,6 +77,7 @@ export class Round {
       trackIndex: this.trackIndex,
       status: "resolved",
       currentBuzzer: this.currentBuzzer,
+      buzzedAt: this.buzzedAt,
       blockedPlayerIds: this.blockedPlayerIds,
       outcome,
     });

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { Playlist } from "./playlist";
 import {
+  BuzzAlreadyTakenError,
   CannotStartEmptyRoomError,
   DuplicateNicknameError,
   GameNotInProgressError,
@@ -334,4 +335,75 @@ describe("Room.start", () => {
     expect(lobby.rounds).toHaveLength(0);
     expect(started).not.toBe(lobby);
   });
+});
+
+describe("Room.buzz", () => {
+  const startedRoom = (...players: string[]) => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    for (const id of players) room = room.join({ playerId: id, nickname: id });
+    return room.start();
+  };
+
+  it("transitions the current round to buzzed and stores the buzzer", () => {
+    const room = startedRoom("p1").buzz({ playerId: "p1", at: 1000 });
+    const round = room.rounds.at(-1)!;
+    expect(round.status).toBe("buzzed");
+    expect(round.currentBuzzer).toBe("p1");
+  });
+
+  it("rejects if the room is not playing (R1 — covers lobby and finished states)", () => {
+    const lobby = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    }).join({ playerId: "p1", nickname: "p1" });
+    expect(() => lobby.buzz({ playerId: "p1", at: 1000 })).toThrow(GameNotInProgressError);
+  });
+
+  it("rejects R1: round status is not playing (e.g. resolved)", () => {
+    // We can land in a non-playing round if the round was somehow not playing
+    // Once we have validate, we'll have natural cases. For now we exercise R2
+    // (already buzzed) which is also a non-playing round.
+    const room = startedRoom("p1", "p2").buzz({ playerId: "p1", at: 1000 });
+    expect(() => room.buzz({ playerId: "p2", at: 2000 })).toThrow(BuzzAlreadyTakenError);
+  });
+
+  it("rejects R2: a second buzz on an already-buzzed round throws BuzzAlreadyTakenError", () => {
+    const room = startedRoom("p1", "p2").buzz({ playerId: "p1", at: 1000 });
+    expect(() => room.buzz({ playerId: "p2", at: 1500 })).toThrow(BuzzAlreadyTakenError);
+  });
+
+  it("R3: first call wins regardless of the at value passed afterwards", () => {
+    const room = startedRoom("p1", "p2").buzz({ playerId: "p1", at: 5000 });
+    expect(room.rounds.at(-1)?.currentBuzzer).toBe("p1");
+    // Second call (even with smaller at) is rejected — server-side ordering.
+    expect(() => room.buzz({ playerId: "p2", at: 1000 })).toThrow(BuzzAlreadyTakenError);
+  });
+
+  it("rejects a buzz from a player not in the room", () => {
+    const room = startedRoom("p1");
+    expect(() => room.buzz({ playerId: "ghost", at: 1000 })).toThrow(PlayerNotInRoomError);
+  });
+
+  it("records the buzz timestamp on the round (for audit)", () => {
+    const room = startedRoom("p1").buzz({ playerId: "p1", at: 4242 });
+    expect(room.rounds.at(-1)?.buzzedAt).toBe(4242);
+  });
+
+  it("returns a new room without mutating the original", () => {
+    const before = startedRoom("p1");
+    const after = before.buzz({ playerId: "p1", at: 1000 });
+    expect(before.rounds.at(-1)?.status).toBe("playing");
+    expect(after.rounds.at(-1)?.status).toBe("buzzed");
+    expect(after).not.toBe(before);
+  });
+
+  // R4 (PlayerBlockedError) and RoundNotPlayingError-on-resolved-round are
+  // exercised in T10.1 once validate('wrong') and validate('skip') exist.
 });

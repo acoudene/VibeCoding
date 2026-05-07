@@ -82,6 +82,27 @@ export class GameNotInProgressError extends Error {
   }
 }
 
+export class RoundNotPlayingError extends Error {
+  constructor(status: RoundStatus) {
+    super(`Round is not accepting buzzes (status "${status}")`);
+    this.name = "RoundNotPlayingError";
+  }
+}
+
+export class BuzzAlreadyTakenError extends Error {
+  constructor(currentBuzzer: PlayerId) {
+    super(`Buzz already taken by "${currentBuzzer}"`);
+    this.name = "BuzzAlreadyTakenError";
+  }
+}
+
+export class PlayerBlockedError extends Error {
+  constructor(playerId: PlayerId) {
+    super(`Player "${playerId}" is blocked on this round`);
+    this.name = "PlayerBlockedError";
+  }
+}
+
 const MAX_PLAYERS = 8;
 
 export type RoomStatus = "lobby" | "playing" | "finished";
@@ -171,6 +192,22 @@ export class Room {
     if (this.status !== "lobby") throw new RoomNotStartableError(this.status);
     if (this.players.length === 0) throw new CannotStartEmptyRoomError();
     return this.cloneWith({ status: "playing", rounds: [Round.start(0)] });
+  }
+
+  buzz(props: { playerId: PlayerId; at: number }): Room {
+    if (this.status !== "playing") throw new GameNotInProgressError(this.status);
+    if (!this.players.some((p) => p.id === props.playerId)) {
+      throw new PlayerNotInRoomError(props.playerId);
+    }
+    const current = this.rounds[this.rounds.length - 1];
+    if (!current) throw new GameNotInProgressError(this.status);
+    if (current.status === "buzzed") {
+      throw new BuzzAlreadyTakenError(current.currentBuzzer ?? "");
+    }
+    if (current.status !== "playing") throw new RoundNotPlayingError(current.status);
+    if (current.isPlayerBlocked(props.playerId)) throw new PlayerBlockedError(props.playerId);
+    const updated = current.markBuzzed(props.playerId, props.at);
+    return this.cloneWith({ rounds: [...this.rounds.slice(0, -1), updated] });
   }
 
   playNextTrack(): Room {
