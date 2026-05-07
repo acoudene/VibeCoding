@@ -9,6 +9,7 @@ import {
   HostCannotJoinError,
   InvalidValidationError,
   NicknameMismatchError,
+  NoMoreTracksError,
   PlayerBlockedError,
   PlayerNotInRoomError,
   Room,
@@ -533,5 +534,110 @@ describe("Room.validate", () => {
         .playNextTrack();
       expect(room.players[0]?.score).toBe(1);
     });
+  });
+});
+
+describe("End of game (T10.2)", () => {
+  const startedRoom = (...players: string[]) => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    for (const id of players) room = room.join({ playerId: id, nickname: id });
+    return room.start();
+  };
+
+  // The fixture playlist has 2 tracks (see makePlaylist).
+  const playThroughLast = (...players: string[]) =>
+    startedRoom(...players)
+      .buzz({ playerId: players[0]!, at: 1000 })
+      .validate("correct") // round 0 done
+      .playNextTrack() // round 1 starts
+      .buzz({ playerId: players[0]!, at: 2000 })
+      .validate("correct"); // round 1 done
+
+  it("playNextTrack after the last resolved round flips status to finished", () => {
+    const room = playThroughLast("p1").playNextTrack();
+    expect(room.status).toBe("finished");
+    expect(room.rounds).toHaveLength(2); // no extra round appended
+  });
+
+  it("calling playNextTrack on a finished room throws NoMoreTracksError", () => {
+    const finished = playThroughLast("p1").playNextTrack();
+    expect(() => finished.playNextTrack()).toThrow(NoMoreTracksError);
+  });
+
+  it("validate is rejected once the room is finished", () => {
+    const finished = playThroughLast("p1").playNextTrack();
+    expect(() => finished.validate("correct")).toThrow(GameNotInProgressError);
+  });
+
+  it("buzz is rejected once the room is finished", () => {
+    const finished = playThroughLast("p1").playNextTrack();
+    expect(() => finished.buzz({ playerId: "p1", at: 3000 })).toThrow(GameNotInProgressError);
+  });
+});
+
+describe("Room.leaderboard", () => {
+  const startedRoom = (...players: string[]) => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    for (const id of players) room = room.join({ playerId: id, nickname: id });
+    return room.start();
+  };
+
+  it("returns players sorted by score descending", () => {
+    const room = startedRoom("p1", "p2", "p3")
+      .buzz({ playerId: "p2", at: 1000 })
+      .validate("correct")
+      .playNextTrack()
+      .buzz({ playerId: "p2", at: 2000 })
+      .validate("half"); // p2 = 1.5
+    const board = room.leaderboard();
+    expect(board.map((e) => e.playerId)).toEqual(["p2", "p1", "p3"]);
+    expect(board[0]?.score).toBe(1.5);
+    expect(board[0]?.nickname).toBe("p2");
+  });
+
+  it("breaks ties by nickname ascending (stable, deterministic)", () => {
+    const room = startedRoom("Charlie", "Alice", "Bob");
+    const board = room.leaderboard();
+    expect(board.map((e) => e.playerId)).toEqual(["Alice", "Bob", "Charlie"]);
+  });
+
+  it("includes every player even disconnected ones", () => {
+    const room = startedRoom("p1", "p2").leave("p1");
+    const board = room.leaderboard();
+    expect(board).toHaveLength(2);
+    expect(board.find((e) => e.playerId === "p1")).toBeDefined();
+  });
+
+  it("does not include the host", () => {
+    const room = startedRoom("p1");
+    const board = room.leaderboard();
+    expect(board.some((e) => e.playerId === "host-1")).toBe(false);
+  });
+
+  it("is a pure projection — does not mutate the room", () => {
+    const room = startedRoom("p1");
+    const before = room.players;
+    room.leaderboard();
+    expect(room.players).toBe(before);
+  });
+
+  it("works on a finished room", () => {
+    let room = startedRoom("p1");
+    room = room.buzz({ playerId: "p1", at: 1000 }).validate("correct").playNextTrack();
+    room = room.buzz({ playerId: "p1", at: 2000 }).validate("correct");
+    const finished = room.playNextTrack();
+    expect(finished.status).toBe("finished");
+    const board = finished.leaderboard();
+    expect(board[0]?.score).toBe(2);
   });
 });

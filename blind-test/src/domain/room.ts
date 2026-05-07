@@ -252,6 +252,7 @@ export class Room {
   }
 
   playNextTrack(): Room {
+    if (this.status === "finished") throw new NoMoreTracksError();
     if (this.status !== "playing") throw new GameNotInProgressError(this.status);
     const current = this.rounds[this.rounds.length - 1];
     if (!current || current.status !== "resolved") throw new RoundNotResolvedError();
@@ -260,6 +261,15 @@ export class Room {
       return this.cloneWith({ status: "finished" });
     }
     return this.cloneWith({ rounds: [...this.rounds, Round.start(nextIndex)] });
+  }
+
+  leaderboard(): ReadonlyArray<{ playerId: PlayerId; nickname: string; score: number }> {
+    return this.players
+      .map((p) => ({ playerId: p.id, nickname: p.nickname, score: p.score }))
+      .sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score;
+        return a.nickname.localeCompare(b.nickname);
+      });
   }
 
   private cloneWith(patch: Partial<RoomInternalState>): Room {
