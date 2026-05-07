@@ -49,11 +49,16 @@ describe("Round.markResolved", () => {
     expect(resolved.outcome).toBe("skip");
   });
 
-  it("rejects non-skip resolution from playing", () => {
+  it("rejects correct/half resolution from playing", () => {
     const playing = Round.start(0);
     expect(() => playing.markResolved("correct")).toThrow(InvalidRoundTransitionError);
-    expect(() => playing.markResolved("wrong")).toThrow(InvalidRoundTransitionError);
     expect(() => playing.markResolved("half")).toThrow(InvalidRoundTransitionError);
+  });
+
+  it("allows wrong resolution from playing (used when all players are blocked)", () => {
+    const resolved = Round.start(0).markResolved("wrong");
+    expect(resolved.status).toBe("resolved");
+    expect(resolved.outcome).toBe("wrong");
   });
 
   it("rejects resolving an already-resolved round", () => {

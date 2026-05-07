@@ -103,6 +103,13 @@ export class PlayerBlockedError extends Error {
   }
 }
 
+export class InvalidValidationError extends Error {
+  constructor(outcome: RoundOutcome, status: RoundStatus) {
+    super(`Cannot validate "${outcome}" on a round with status "${status}"`);
+    this.name = "InvalidValidationError";
+  }
+}
+
 const MAX_PLAYERS = 8;
 
 export type RoomStatus = "lobby" | "playing" | "finished";
@@ -208,6 +215,40 @@ export class Room {
     if (current.isPlayerBlocked(props.playerId)) throw new PlayerBlockedError(props.playerId);
     const updated = current.markBuzzed(props.playerId, props.at);
     return this.cloneWith({ rounds: [...this.rounds.slice(0, -1), updated] });
+  }
+
+  validate(outcome: RoundOutcome): Room {
+    if (this.status !== "playing") throw new GameNotInProgressError(this.status);
+    const current = this.rounds[this.rounds.length - 1];
+    if (!current) throw new GameNotInProgressError(this.status);
+
+    if (outcome === "skip") {
+      if (current.status === "resolved") throw new InvalidValidationError(outcome, current.status);
+      const resolved = current.markResolved("skip");
+      return this.cloneWith({ rounds: [...this.rounds.slice(0, -1), resolved] });
+    }
+
+    if (current.status !== "buzzed") {
+      throw new InvalidValidationError(outcome, current.status);
+    }
+
+    if (outcome === "correct" || outcome === "half") {
+      const points = outcome === "correct" ? 1 : 0.5;
+      const buzzerId = current.currentBuzzer!;
+      const players = this.players.map((p) => (p.id === buzzerId ? p.addPoints(points) : p));
+      const resolved = current.markResolved(outcome);
+      return this.cloneWith({
+        players,
+        rounds: [...this.rounds.slice(0, -1), resolved],
+      });
+    }
+
+    // wrong: block buzzer, return to playing; if all players are now blocked,
+    // resolve the round without a winner.
+    const blocked = current.block();
+    const allBlocked = this.players.every((p) => blocked.blockedPlayerIds.has(p.id));
+    const next = allBlocked ? blocked.markResolved("wrong") : blocked;
+    return this.cloneWith({ rounds: [...this.rounds.slice(0, -1), next] });
   }
 
   playNextTrack(): Room {

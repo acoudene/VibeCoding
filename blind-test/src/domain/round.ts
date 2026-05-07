@@ -66,7 +66,7 @@ export class Round {
   }
 
   markResolved(outcome: RoundOutcome): Round {
-    const allowedFromPlaying = outcome === "skip";
+    const allowedFromPlaying = outcome === "skip" || outcome === "wrong";
     if (this.status === "playing" && !allowedFromPlaying) {
       throw new InvalidRoundTransitionError(this.status, `resolve as "${outcome}"`);
     }

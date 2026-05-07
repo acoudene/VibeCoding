@@ -7,7 +7,9 @@ import {
   DuplicateNicknameError,
   GameNotInProgressError,
   HostCannotJoinError,
+  InvalidValidationError,
   NicknameMismatchError,
+  PlayerBlockedError,
   PlayerNotInRoomError,
   Room,
   RoomFullError,
@@ -406,4 +408,130 @@ describe("Room.buzz", () => {
 
   // R4 (PlayerBlockedError) and RoundNotPlayingError-on-resolved-round are
   // exercised in T10.1 once validate('wrong') and validate('skip') exist.
+});
+
+describe("Room.validate", () => {
+  const startedRoom = (...players: string[]) => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    for (const id of players) room = room.join({ playerId: id, nickname: id });
+    return room.start();
+  };
+
+  describe("correct", () => {
+    it("awards +1 point to the buzzer and resolves the round", () => {
+      const room = startedRoom("p1", "p2").buzz({ playerId: "p1", at: 1000 }).validate("correct");
+      const round = room.rounds.at(-1)!;
+      expect(round.status).toBe("resolved");
+      expect(round.outcome).toBe("correct");
+      expect(room.players.find((p) => p.id === "p1")?.score).toBe(1);
+      expect(room.players.find((p) => p.id === "p2")?.score).toBe(0);
+    });
+
+    it("rejects when the round is not buzzed", () => {
+      const room = startedRoom("p1");
+      expect(() => room.validate("correct")).toThrow(InvalidValidationError);
+    });
+  });
+
+  describe("half", () => {
+    it("awards +0.5 to the buzzer and resolves the round", () => {
+      const room = startedRoom("p1").buzz({ playerId: "p1", at: 1000 }).validate("half");
+      const round = room.rounds.at(-1)!;
+      expect(round.status).toBe("resolved");
+      expect(round.outcome).toBe("half");
+      expect(room.players.find((p) => p.id === "p1")?.score).toBe(0.5);
+    });
+
+    it("rejects when the round is not buzzed", () => {
+      const room = startedRoom("p1");
+      expect(() => room.validate("half")).toThrow(InvalidValidationError);
+    });
+  });
+
+  describe("wrong", () => {
+    it("blocks the buzzer and returns the round to playing with no buzzer", () => {
+      const room = startedRoom("p1", "p2").buzz({ playerId: "p1", at: 1000 }).validate("wrong");
+      const round = room.rounds.at(-1)!;
+      expect(round.status).toBe("playing");
+      expect(round.currentBuzzer).toBeUndefined();
+      expect(round.blockedPlayerIds.has("p1")).toBe(true);
+      expect(room.players.find((p) => p.id === "p1")?.score).toBe(0);
+    });
+
+    it("R4: a blocked player can no longer buzz on the same round", () => {
+      const room = startedRoom("p1", "p2").buzz({ playerId: "p1", at: 1000 }).validate("wrong");
+      expect(() => room.buzz({ playerId: "p1", at: 2000 })).toThrow(PlayerBlockedError);
+    });
+
+    it("an unblocked player can re-buzz after a wrong answer", () => {
+      const room = startedRoom("p1", "p2")
+        .buzz({ playerId: "p1", at: 1000 })
+        .validate("wrong")
+        .buzz({ playerId: "p2", at: 2000 });
+      const round = room.rounds.at(-1)!;
+      expect(round.status).toBe("buzzed");
+      expect(round.currentBuzzer).toBe("p2");
+    });
+
+    it("when all players are blocked, the round resolves without a winner", () => {
+      let room = startedRoom("p1", "p2");
+      room = room.buzz({ playerId: "p1", at: 1000 }).validate("wrong");
+      room = room.buzz({ playerId: "p2", at: 2000 }).validate("wrong");
+      const round = room.rounds.at(-1)!;
+      expect(round.status).toBe("resolved");
+      expect(round.outcome).toBe("wrong");
+      expect(round.blockedPlayerIds.has("p1")).toBe(true);
+      expect(round.blockedPlayerIds.has("p2")).toBe(true);
+      expect(room.players.find((p) => p.id === "p1")?.score).toBe(0);
+      expect(room.players.find((p) => p.id === "p2")?.score).toBe(0);
+    });
+
+    it("rejects when the round is not buzzed", () => {
+      const room = startedRoom("p1");
+      expect(() => room.validate("wrong")).toThrow(InvalidValidationError);
+    });
+  });
+
+  describe("skip", () => {
+    it("resolves the round with no scoring from playing", () => {
+      const room = startedRoom("p1", "p2").validate("skip");
+      const round = room.rounds.at(-1)!;
+      expect(round.status).toBe("resolved");
+      expect(round.outcome).toBe("skip");
+      expect(room.players.every((p) => p.score === 0)).toBe(true);
+    });
+
+    it("resolves the round with no scoring from buzzed (host overrides)", () => {
+      const room = startedRoom("p1").buzz({ playerId: "p1", at: 1000 }).validate("skip");
+      const round = room.rounds.at(-1)!;
+      expect(round.status).toBe("resolved");
+      expect(round.outcome).toBe("skip");
+      expect(room.players[0]?.score).toBe(0);
+    });
+  });
+
+  describe("playNextTrack happy path (T8.2 deferred)", () => {
+    it("advances to the next round after a resolved round", () => {
+      const room = startedRoom("p1")
+        .buzz({ playerId: "p1", at: 1000 })
+        .validate("correct")
+        .playNextTrack();
+      expect(room.rounds).toHaveLength(2);
+      expect(room.rounds.at(-1)?.trackIndex).toBe(1);
+      expect(room.rounds.at(-1)?.status).toBe("playing");
+    });
+
+    it("preserves scores across rounds", () => {
+      const room = startedRoom("p1")
+        .buzz({ playerId: "p1", at: 1000 })
+        .validate("correct")
+        .playNextTrack();
+      expect(room.players[0]?.score).toBe(1);
+    });
+  });
 });
