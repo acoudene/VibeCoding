@@ -16,8 +16,10 @@ jobs:
     timeout-minutes: 20
 
     services:
+      # Pinned by digest because soketi removed semantic tags from quay.io.
+      # This digest matches commit e446df8e (March 2025 build, debian-16).
       soketi:
-        image: quay.io/soketi/soketi:1-16-debian
+        image: quay.io/soketi/soketi@sha256:dc71a955eaca9adfbee2d11ca7c76d6673c19f69c12bc14ee009f2467ad9e7ed
         ports:
           - 6001:6001
         env:
