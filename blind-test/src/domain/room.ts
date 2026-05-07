@@ -1,6 +1,9 @@
 import { Player, type PlayerId } from "./player";
 import type { Playlist } from "./playlist";
 import { RoomCode } from "./room-code";
+import { Round, type RoundOutcome, type RoundStatus } from "./round";
+
+export { Round, type RoundOutcome, type RoundStatus };
 
 export class RoomNotJoinableError extends Error {
   constructor(status: RoomStatus) {
@@ -85,17 +88,6 @@ export type RoomStatus = "lobby" | "playing" | "finished";
 
 export type Clock = { now: () => number };
 
-export type RoundStatus = "playing" | "buzzed" | "resolved";
-export type RoundOutcome = "correct" | "wrong" | "half" | "skip";
-
-export type Round = {
-  trackIndex: number;
-  status: RoundStatus;
-  currentBuzzer?: PlayerId;
-  blockedPlayerIds: ReadonlySet<PlayerId>;
-  outcome?: RoundOutcome;
-};
-
 export type RoomCreateProps = {
   code: string;
   hostId: PlayerId;
@@ -178,12 +170,7 @@ export class Room {
   start(): Room {
     if (this.status !== "lobby") throw new RoomNotStartableError(this.status);
     if (this.players.length === 0) throw new CannotStartEmptyRoomError();
-    const round0: Round = {
-      trackIndex: 0,
-      status: "playing",
-      blockedPlayerIds: new Set(),
-    };
-    return this.cloneWith({ status: "playing", rounds: [round0] });
+    return this.cloneWith({ status: "playing", rounds: [Round.start(0)] });
   }
 
   playNextTrack(): Room {
@@ -194,12 +181,7 @@ export class Room {
     if (nextIndex >= this.playlist.length) {
       return this.cloneWith({ status: "finished" });
     }
-    const nextRound: Round = {
-      trackIndex: nextIndex,
-      status: "playing",
-      blockedPlayerIds: new Set(),
-    };
-    return this.cloneWith({ rounds: [...this.rounds, nextRound] });
+    return this.cloneWith({ rounds: [...this.rounds, Round.start(nextIndex)] });
   }
 
   private cloneWith(patch: Partial<RoomInternalState>): Room {
