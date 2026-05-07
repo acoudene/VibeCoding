@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Blind Test
 
-## Getting Started
+Application web pour animer des blind tests musicaux entre amis : un hôte crée une salle, partage un code court, les joueurs rejoignent depuis leur téléphone, l'hôte lance les morceaux YouTube et arbitre les buzzes en temps réel.
 
-First, run the development server:
+Spécification fonctionnelle : [`spec.md`](./spec.md). Plan d'architecture : [`plan.md`](./plan.md). Découpage en sous-tâches : [`tasks.md`](./tasks.md).
+
+## Prérequis
+
+- **Node.js ≥ 22**
+- **pnpm ≥ 11** (via `corepack enable` ou install manuel)
+- Pour les tests E2E en local : **Chromium** (installé automatiquement par `pnpm exec playwright install`)
+
+## Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Commande                | Effet                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `pnpm dev`              | Lance le serveur Next.js en mode dev sur http://localhost:3000                   |
+| `pnpm build`            | Build de production                                                              |
+| `pnpm start`            | Démarre le build de production                                                   |
+| `pnpm lint`             | ESLint (Next + simple-import-sort, no-console)                                   |
+| `pnpm format`           | Prettier write sur tout le repo                                                  |
+| `pnpm format:check`     | Prettier check (utilisé en CI)                                                   |
+| `pnpm typecheck`        | `tsc --noEmit` avec strict + noUncheckedIndexedAccess                            |
+| `pnpm test:unit`        | Vitest sur `tests/unit/**` et tests colocalisés `src/**/*.test.{ts,tsx}` (jsdom) |
+| `pnpm test:integration` | Vitest sur `tests/integration/**` (node, use cases avec adapters in-memory)      |
+| `pnpm test:arch`        | Vitest sur `tests/architecture/**` (interdit les imports cross-layer)            |
+| `pnpm test`             | Enchaîne `test:unit`, `test:integration`, `test:arch`                            |
+| `pnpm test:e2e`         | Playwright (build + start automatiques via `webServer`)                          |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Structure
 
-## Learn More
+```
+blind-test/
+├── src/
+│   ├── app/             # Routes Next.js (App Router) + API
+│   ├── domain/          # Entités, value objects, règles métier (pures)
+│   ├── application/     # Use cases, ports (interfaces)
+│   └── infrastructure/  # Adapters concrets (Pusher, in-memory repos…)
+├── tests/
+│   ├── unit/            # Tests unitaires (jsdom)
+│   ├── integration/     # Tests d'intégration des use cases
+│   ├── architecture/    # Tests d'imports interdits entre couches
+│   ├── e2e/             # Scénarios Playwright
+│   └── setup/           # Setup files Vitest
+├── plan.md              # Architecture cible
+├── spec.md              # Spécification fonctionnelle
+└── tasks.md             # Découpage en sous-tâches commit-par-commit
+```
 
-To learn more about Next.js, take a look at the following resources:
+L'architecture suit une **hexagonale stricte** : `domain` ne dépend de rien, `application` ne dépend que de `domain`, `infrastructure` et `app` câblent les ports. Les violations sont attrapées par `pnpm test:arch`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Déploiement
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Cible v1 : **Vercel** (front + API routes Next.js) avec **Pusher Channels** managé pour le temps réel.
 
-## Deploy on Vercel
+Variables d'environnement à configurer côté hébergeur :
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Côté serveur (privées) | Côté client (`NEXT_PUBLIC_*`) |
+| ---------------------- | ----------------------------- |
+| `PUSHER_APP_ID`        | `NEXT_PUBLIC_PUSHER_KEY`      |
+| `PUSHER_KEY`           | `NEXT_PUBLIC_PUSHER_CLUSTER`  |
+| `PUSHER_SECRET`        |                               |
+| `PUSHER_CLUSTER`       |                               |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+En CI, le job E2E utilise un service container [soketi](https://github.com/soketi/soketi) (Pusher-compatible self-hosted) au lieu d'un compte Pusher.
