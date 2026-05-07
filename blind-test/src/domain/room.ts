@@ -58,6 +58,27 @@ export class CannotStartEmptyRoomError extends Error {
   }
 }
 
+export class RoundNotResolvedError extends Error {
+  constructor() {
+    super("Cannot advance to the next track while the current round is not resolved");
+    this.name = "RoundNotResolvedError";
+  }
+}
+
+export class NoMoreTracksError extends Error {
+  constructor() {
+    super("No more tracks to play in this playlist");
+    this.name = "NoMoreTracksError";
+  }
+}
+
+export class GameNotInProgressError extends Error {
+  constructor(status: RoomStatus) {
+    super(`Game is not in progress (status "${status}")`);
+    this.name = "GameNotInProgressError";
+  }
+}
+
 const MAX_PLAYERS = 8;
 
 export type RoomStatus = "lobby" | "playing" | "finished";
@@ -163,6 +184,22 @@ export class Room {
       blockedPlayerIds: new Set(),
     };
     return this.cloneWith({ status: "playing", rounds: [round0] });
+  }
+
+  playNextTrack(): Room {
+    if (this.status !== "playing") throw new GameNotInProgressError(this.status);
+    const current = this.rounds[this.rounds.length - 1];
+    if (!current || current.status !== "resolved") throw new RoundNotResolvedError();
+    const nextIndex = current.trackIndex + 1;
+    if (nextIndex >= this.playlist.length) {
+      return this.cloneWith({ status: "finished" });
+    }
+    const nextRound: Round = {
+      trackIndex: nextIndex,
+      status: "playing",
+      blockedPlayerIds: new Set(),
+    };
+    return this.cloneWith({ rounds: [...this.rounds, nextRound] });
   }
 
   private cloneWith(patch: Partial<RoomInternalState>): Room {

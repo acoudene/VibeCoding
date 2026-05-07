@@ -4,6 +4,7 @@ import { Playlist } from "./playlist";
 import {
   CannotStartEmptyRoomError,
   DuplicateNicknameError,
+  GameNotInProgressError,
   HostCannotJoinError,
   NicknameMismatchError,
   PlayerNotInRoomError,
@@ -11,6 +12,7 @@ import {
   RoomFullError,
   RoomNotJoinableError,
   RoomNotStartableError,
+  RoundNotResolvedError,
 } from "./room";
 import { Track } from "./track";
 
@@ -260,6 +262,30 @@ describe("Room.reconnect", () => {
     expect(reconnected.players[0]?.connected).toBe(true);
     expect(reconnected).not.toBe(left);
   });
+});
+
+describe("Room.playNextTrack", () => {
+  const baseRoom = () =>
+    Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+
+  it("rejects if the current round is still playing (not resolved)", () => {
+    const started = baseRoom().join({ playerId: "p1", nickname: "Alice" }).start();
+    expect(() => started.playNextTrack()).toThrow(RoundNotResolvedError);
+  });
+
+  it("rejects if the room status is lobby", () => {
+    const lobby = baseRoom().join({ playerId: "p1", nickname: "Alice" });
+    expect(() => lobby.playNextTrack()).toThrow(GameNotInProgressError);
+  });
+
+  // Happy-path advancement (round resolved -> next round) is covered in T10.1
+  // tests once Room.validate exists. This avoids a test-only backdoor in the
+  // domain API.
 });
 
 describe("Room.start", () => {
