@@ -44,6 +44,20 @@ export class NicknameMismatchError extends Error {
   }
 }
 
+export class RoomNotStartableError extends Error {
+  constructor(status: RoomStatus) {
+    super(`Room cannot be started in status "${status}"`);
+    this.name = "RoomNotStartableError";
+  }
+}
+
+export class CannotStartEmptyRoomError extends Error {
+  constructor() {
+    super("Cannot start a room with no players");
+    this.name = "CannotStartEmptyRoomError";
+  }
+}
+
 const MAX_PLAYERS = 8;
 
 export type RoomStatus = "lobby" | "playing" | "finished";
@@ -138,6 +152,17 @@ export class Room {
     const next = [...this.players];
     next[idx] = existing.setConnected(true);
     return this.cloneWith({ players: next });
+  }
+
+  start(): Room {
+    if (this.status !== "lobby") throw new RoomNotStartableError(this.status);
+    if (this.players.length === 0) throw new CannotStartEmptyRoomError();
+    const round0: Round = {
+      trackIndex: 0,
+      status: "playing",
+      blockedPlayerIds: new Set(),
+    };
+    return this.cloneWith({ status: "playing", rounds: [round0] });
   }
 
   private cloneWith(patch: Partial<RoomInternalState>): Room {

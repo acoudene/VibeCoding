@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { Playlist } from "./playlist";
 import {
+  CannotStartEmptyRoomError,
   DuplicateNicknameError,
   HostCannotJoinError,
   NicknameMismatchError,
   PlayerNotInRoomError,
   Room,
   RoomFullError,
+  RoomNotJoinableError,
+  RoomNotStartableError,
 } from "./room";
 import { Track } from "./track";
 
@@ -256,5 +259,53 @@ describe("Room.reconnect", () => {
     expect(left.players[0]?.connected).toBe(false);
     expect(reconnected.players[0]?.connected).toBe(true);
     expect(reconnected).not.toBe(left);
+  });
+});
+
+describe("Room.start", () => {
+  const baseRoom = () =>
+    Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+
+  it("transitions status from lobby to playing", () => {
+    const started = baseRoom().join({ playerId: "p1", nickname: "Alice" }).start();
+    expect(started.status).toBe("playing");
+  });
+
+  it("creates round 0 with status playing and no buzzer", () => {
+    const started = baseRoom().join({ playerId: "p1", nickname: "Alice" }).start();
+    expect(started.rounds).toHaveLength(1);
+    const round = started.rounds[0]!;
+    expect(round.trackIndex).toBe(0);
+    expect(round.status).toBe("playing");
+    expect(round.currentBuzzer).toBeUndefined();
+    expect(round.blockedPlayerIds.size).toBe(0);
+    expect(round.outcome).toBeUndefined();
+  });
+
+  it("rejects if no players have joined", () => {
+    expect(() => baseRoom().start()).toThrow(CannotStartEmptyRoomError);
+  });
+
+  it("rejects if status is not lobby", () => {
+    const started = baseRoom().join({ playerId: "p1", nickname: "Alice" }).start();
+    expect(() => started.start()).toThrow(RoomNotStartableError);
+  });
+
+  it("rejects join after start (covers Room.join's status check)", () => {
+    const started = baseRoom().join({ playerId: "p1", nickname: "Alice" }).start();
+    expect(() => started.join({ playerId: "p2", nickname: "Bob" })).toThrow(RoomNotJoinableError);
+  });
+
+  it("returns a new room without mutating the original", () => {
+    const lobby = baseRoom().join({ playerId: "p1", nickname: "Alice" });
+    const started = lobby.start();
+    expect(lobby.status).toBe("lobby");
+    expect(lobby.rounds).toHaveLength(0);
+    expect(started).not.toBe(lobby);
   });
 });
