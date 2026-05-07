@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { Playlist } from "./playlist";
-import { DuplicateNicknameError, HostCannotJoinError, Room, RoomFullError } from "./room";
+import {
+  DuplicateNicknameError,
+  HostCannotJoinError,
+  PlayerNotInRoomError,
+  Room,
+  RoomFullError,
+} from "./room";
 import { Track } from "./track";
 
 const VALID_ID = "dQw4w9WgXcQ";
@@ -134,5 +140,59 @@ describe("Room.join", () => {
   it("rejects when playerId equals hostId", () => {
     const room = makeRoom();
     expect(() => room.join({ playerId: "host-1", nickname: "Host" })).toThrow(HostCannotJoinError);
+  });
+});
+
+describe("Room.leave", () => {
+  const makeRoomWith = (...ids: string[]) => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    for (const id of ids) {
+      room = room.join({ playerId: id, nickname: id });
+    }
+    return room;
+  };
+
+  it("flags the player as connected: false", () => {
+    const room = makeRoomWith("p1", "p2").leave("p1");
+    expect(room.players[0]?.connected).toBe(false);
+    expect(room.players[1]?.connected).toBe(true);
+  });
+
+  it("preserves the player's score on leave (R7)", () => {
+    // At this stage scores are always 0 (no validate yet). We assert leave
+    // doesn't modify the score field — full preservation across points is
+    // covered by T10.1 once Room.validate awards points.
+    const before = makeRoomWith("p1").players[0]!.score;
+    const after = makeRoomWith("p1").leave("p1").players[0]!.score;
+    expect(after).toBe(before);
+  });
+
+  it("does not remove the player from the players array", () => {
+    const room = makeRoomWith("p1", "p2", "p3").leave("p2");
+    expect(room.players).toHaveLength(3);
+    expect(room.players.map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("returns a new room without mutating the original", () => {
+    const room = makeRoomWith("p1");
+    const left = room.leave("p1");
+    expect(room.players[0]?.connected).toBe(true);
+    expect(left.players[0]?.connected).toBe(false);
+    expect(left).not.toBe(room);
+  });
+
+  it("is idempotent: leaving twice keeps the player disconnected", () => {
+    const left = makeRoomWith("p1").leave("p1").leave("p1");
+    expect(left.players[0]?.connected).toBe(false);
+  });
+
+  it("throws PlayerNotInRoomError when the player is not in the room", () => {
+    const room = makeRoomWith("p1");
+    expect(() => room.leave("ghost")).toThrow(PlayerNotInRoomError);
   });
 });

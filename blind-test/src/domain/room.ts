@@ -30,6 +30,13 @@ export class HostCannotJoinError extends Error {
   }
 }
 
+export class PlayerNotInRoomError extends Error {
+  constructor(playerId: PlayerId) {
+    super(`Player "${playerId}" is not in this room`);
+    this.name = "PlayerNotInRoomError";
+  }
+}
+
 const MAX_PLAYERS = 8;
 
 export type RoomStatus = "lobby" | "playing" | "finished";
@@ -104,6 +111,14 @@ export class Room {
     }
     const newPlayer = Player.create({ id: props.playerId, nickname: props.nickname });
     return this.cloneWith({ players: [...this.players, newPlayer] });
+  }
+
+  leave(playerId: PlayerId): Room {
+    const idx = this.players.findIndex((p) => p.id === playerId);
+    if (idx === -1) throw new PlayerNotInRoomError(playerId);
+    const next = [...this.players];
+    next[idx] = this.players[idx]!.setConnected(false);
+    return this.cloneWith({ players: next });
   }
 
   private cloneWith(patch: Partial<RoomInternalState>): Room {
