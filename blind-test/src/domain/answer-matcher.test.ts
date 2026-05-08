@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalize } from "./answer-matcher";
+import { levenshtein, normalize } from "./answer-matcher";
 
 describe("AnswerMatcher", () => {
   describe("normalize", () => {
@@ -30,6 +30,32 @@ describe("AnswerMatcher", () => {
       expect(normalize("")).toBe("");
       expect(normalize("   ")).toBe("");
       expect(normalize("!!!---")).toBe("");
+    });
+  });
+
+  describe("levenshtein", () => {
+    it("returns 0 for equal strings", () => {
+      expect(levenshtein("", "")).toBe(0);
+      expect(levenshtein("abc", "abc")).toBe(0);
+      expect(levenshtein("daft punk", "daft punk")).toBe(0);
+    });
+
+    it("returns the length when one side is empty", () => {
+      expect(levenshtein("", "abc")).toBe(3);
+      expect(levenshtein("hello", "")).toBe(5);
+    });
+
+    it("counts single-character substitutions, insertions, deletions", () => {
+      expect(levenshtein("abc", "abd")).toBe(1);
+      expect(levenshtein("abc", "ab")).toBe(1);
+      expect(levenshtein("ab", "abc")).toBe(1);
+    });
+
+    it("counts multiple edits", () => {
+      expect(levenshtein("abc", "axy")).toBe(2);
+      expect(levenshtein("kitten", "sitting")).toBe(3);
+      expect(levenshtein("daft", "draft")).toBe(1);
+      expect(levenshtein("beatles", "beetles")).toBe(1);
     });
   });
 });
