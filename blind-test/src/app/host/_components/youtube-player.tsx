@@ -82,6 +82,8 @@ export function YoutubePlayer({
     [],
   );
 
+  const currentVideoIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     loadIframeApi().then(() => {
@@ -99,14 +101,26 @@ export function YoutubePlayer({
         },
       });
       playerRef.current = player;
+      currentVideoIdRef.current = videoId;
     });
     return () => {
       cancelled = true;
       playerRef.current?.destroy();
       playerRef.current = null;
+      currentVideoIdRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // mount once; use load() for video changes
+  }, []); // mount once; the effect below reacts to videoId/startSeconds changes
+
+  // Reload the video whenever the videoId or startSeconds prop changes
+  // (e.g. host advances to the next track). Skips the initial load handled
+  // by the constructor above.
+  useEffect(() => {
+    if (!playerRef.current) return;
+    if (currentVideoIdRef.current === videoId) return;
+    playerRef.current.loadVideoById({ videoId, startSeconds });
+    currentVideoIdRef.current = videoId;
+  }, [videoId, startSeconds]);
 
   return (
     <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">

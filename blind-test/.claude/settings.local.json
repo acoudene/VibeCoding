@@ -61,7 +61,11 @@
       "WebFetch(domain:pusher.com)",
       "WebFetch(domain:support.pusher.com)",
       "WebFetch(domain:docs.messagebird.com)",
-      "WebFetch(domain:docs.bird.com)"
+      "WebFetch(domain:docs.bird.com)",
+      "PowerShell(Get-ChildItem -Force | ForEach-Object { $_.Name })",
+      "Bash(npm run *)",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\ACE\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Github-acoudene-VibeCoding-blind-test\\\\39027be7-8e6a-498c-b325-22be29a89a90\\\\tasks\\\\btsuy1g8h.output\" -Pattern \"Ready in|error|Error\" -Quiet)",
+      "Bash(Start-Sleep -Seconds 1)"
     ]
   }
 }
