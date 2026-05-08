@@ -685,19 +685,372 @@
 
 ---
 
+---
+
+## Phase 8 — v1.1 : mode `input` + tchat
+
+> Référence : `spec.md` §4.7, §4.7bis, §4.7ter, §4.8, §6.8, R10–R13 ; `plan.md` §14.
+> Position : **après la v1 complète** (après T27). On bâtit sur une base v1 déployée.
+> TDD strict sur le domaine (T40–T43), classique sur use cases / API / UI.
+> Conventions de commits : `feat(domain): ...`, `feat(app): ...`, `feat(infra): ...`, `feat(ui): ...`, `test: ...`.
+
+### T40 — Domaine : `AnswerMatcher` (TDD)
+
+**T40.1** Test rouge `normalize`
+
+- `tests/unit/domain/answer-matcher.test.ts` : cas "Daft Punk!" → "daft punk", "Béyoncé" → "beyonce", "  Air  " → "air", "" → "", chaîne avec uniquement ponctuation → "".
+- Acceptation : test rouge.
+- Commit : `test(domain): answer-matcher normalize cases`
+
+**T40.2** Implémenter `normalize`
+
+- `src/domain/answer-matcher.ts` : `export function normalize(s: string): string` — lowercase + NFD + retrait diacritiques + retrait non-alphanumériques (sauf espace) + collapse espaces + trim.
+- Acceptation : T40.1 passe.
+- Commit : `feat(domain): normalize() for answer matching`
+
+**T40.3** Test rouge `levenshtein`
+
+- Cas : ("", "") = 0, ("abc", "abc") = 0, ("abc", "abd") = 1, ("abc", "axy") = 2, ("kitten", "sitting") = 3.
+- Acceptation : test rouge.
+- Commit : `test(domain): levenshtein distance cases`
+
+**T40.4** Implémenter `levenshtein`
+
+- `src/domain/answer-matcher.ts` : DP itératif, complexité O(n*m).
+- Acceptation : T40.3 passe.
+- Commit : `feat(domain): levenshtein distance`
+
+**T40.5** Test rouge `matchAnswer` (R11)
+
+- Cas couvrant toute la matrice : titre+artiste corrects, titre seul correct, artiste seul correct, aucun, champ saisie vide, champ track vide (Track sans artiste), typo distance 1 (OK), typo distance 3 (KO).
+- Acceptation : test rouge.
+- Commit : `test(domain): matchAnswer covers R11 matrix`
+
+**T40.6** Implémenter `matchAnswer`
+
+- Signature : `matchAnswer({ submittedTitle?, submittedArtist? }, { expectedTitle, expectedArtist? }) -> { titleOk: boolean, artistOk: boolean, outcome: "correct"|"half"|"wrong" }`.
+- `correct` ssi tous les champs attendus matchent ; `half` ssi exactement un matche ; `wrong` sinon. Distance ≤ 2 = match.
+- Acceptation : T40.5 passe.
+- Commit : `feat(domain): matchAnswer implements R11`
+
+### T41 — Domaine : extension `Round` pour `input` (TDD)
+
+**T41.1** Test rouge `Round.submitAnswer` (R10)
+
+- Cas : première soumission acceptée, deuxième soumission du même joueur rejetée (`AlreadySubmittedError`), soumission acceptée même quand la lecture est en cours.
+- Acceptation : test rouge.
+- Commit : `test(domain): round.submitAnswer enforces R10`
+
+**T41.2** Étendre `Round` + `errors`
+
+- `src/domain/round.ts` : champ `submissions: Map<playerId, { title?: string, artist?: string, at: number }>`. Méthode `submitAnswer(playerId, submission, at)`.
+- `src/domain/errors.ts` : `AlreadySubmittedError`.
+- Acceptation : T41.1 passe.
+- Commit : `feat(domain): round accepts player submissions (R10)`
+
+**T41.3** Test rouge `Round.resolveByInput`
+
+- Cas : 3 joueurs, A correct, B half (titre seul), C n'a pas soumis → C `wrong` (= 0pt, pas faux pénalisé). D a soumis correct mais pas dans la liste joueurs → ignoré.
+- Acceptation : test rouge.
+- Commit : `test(domain): round.resolveByInput scoring map`
+
+**T41.4** Implémenter `resolveByInput`
+
+- Signature : `resolveByInput(matcher, expectedTrack, players) -> Map<playerId, "correct"|"half"|"wrong">`.
+- Pour chaque joueur : si pas de submission → `wrong` (US-69) ; sinon `matcher.matchAnswer(submission, expected).outcome`.
+- Acceptation : T41.3 passe.
+- Commit : `feat(domain): round.resolveByInput uses AnswerMatcher`
+
+### T42 — Domaine : extension `Room` (mode + scoring input) (TDD)
+
+**T42.1** Test rouge `Room.setMode` (R12)
+
+- Cas : `setMode("input")` accepté en `lobby` ; refusé (`InvalidModeChangeError`) en `playing` ou `finished`.
+- Acceptation : test rouge.
+- Commit : `test(domain): room.setMode enforces R12`
+
+**T42.2** Implémenter `Room.setMode`
+
+- `src/domain/room.ts` : champ `mode: "buzz" | "input"` (par défaut `"buzz"` à la création). Méthode `setMode`.
+- `src/domain/errors.ts` : `InvalidModeChangeError`.
+- Acceptation : T42.1 passe.
+- Commit : `feat(domain): room.mode field with R12 guard`
+
+**T42.3** Test rouge `Room.submitAnswer` + `Room.resolveInputRound`
+
+- `submitAnswer` délègue à Round, vérifie mode = `input`, lève `WrongModeError` sinon.
+- `resolveInputRound` calcule scores, applique R11 (correct=+1, half=+0,5, wrong=0), avance au tour suivant.
+- Test fin de playlist → status `finished`.
+- Acceptation : test rouge.
+- Commit : `test(domain): room input flow scoring and transitions`
+
+**T42.4** Implémenter
+
+- `src/domain/room.ts` : méthodes `submitAnswer(playerId, submission, at)` et `resolveInputRound(matcher, clock)`.
+- Méthode `overrideOutcome(playerId, outcome)` pour US-68 (rejouée le scoring delta : si l'ancien outcome était `correct` (+1) et le nouveau `half` (+0,5), retire 0,5).
+- Acceptation : T42.3 passe.
+- Commit : `feat(domain): room input scoring with override`
+
+### T43 — Domaine : agrégat `Chat` (TDD)
+
+**T43.1** Test rouge `Chat.post` (R13 — longueur, vide)
+
+- Cas : message vide rejeté (`ChatEmptyError`), 200 caractères OK, 201 caractères rejeté (`ChatTooLongError`), trim avant longueur.
+- Acceptation : test rouge.
+- Commit : `test(domain): chat rejects empty and overlong messages`
+
+**T43.2** Implémenter `Chat.post` (longueur + trim)
+
+- `src/domain/chat.ts` : agrégat `Chat { roomCode, messages: ChatMessage[], isOpen: boolean, lastSentAt: Map<playerId, number> }`.
+- Méthode `post(authorId, role: "host"|"player", text, at)` retourne le message + Chat mis à jour.
+- `src/domain/errors.ts` : `ChatEmptyError`, `ChatTooLongError`.
+- Acceptation : T43.1 passe.
+- Commit : `feat(domain): chat aggregate with post() and length guard`
+
+**T43.3** Test rouge cooldown (R13)
+
+- Cas : joueur poste à t=0 OK, joueur poste à t=400ms rejeté (`ChatCooldownError`), joueur poste à t=600ms OK. Hôte n'a pas de cooldown (deux posts à 100ms d'intervalle OK).
+- Acceptation : test rouge.
+- Commit : `test(domain): chat cooldown is 500ms for players, none for host`
+
+**T43.4** Implémenter cooldown
+
+- Vérifier `at - lastSentAt.get(authorId)` ≥ 500 pour role `player`.
+- Acceptation : T43.3 passe.
+- Commit : `feat(domain): chat cooldown enforces R13 for players`
+
+**T43.5** Test rouge `Chat.toggle` + post quand fermé
+
+- Cas : `toggle()` bascule `isOpen`. Quand `isOpen=false`, `post(player)` rejeté (`ChatClosedError`), `post(host)` accepté.
+- Acceptation : test rouge.
+- Commit : `test(domain): chat closed blocks players, allows host`
+
+**T43.6** Implémenter `toggle` + guard
+
+- Acceptation : T43.5 passe.
+- Commit : `feat(domain): chat toggle and closed-mode guard`
+
+### T44 — Application : ports + use cases v1.1
+
+**T44.1** Port `ChatRepository`
+
+- `src/application/ports/chat-repository.ts` : `save`, `findByRoomCode`, `delete`.
+- Acceptation : compile + utilisé dans T44.2.
+- Commit : `feat(app): chat repository port`
+
+**T44.2** Use case `SetRoomMode`
+
+- `src/application/use-cases/set-room-mode.ts` : charge Room, appelle `setMode`, sauvegarde, publish `room:mode-changed`.
+- Test d'intégration avec `InMemoryRoomRepository` + `FakeRealtimeChannel`.
+- Commit : `feat(app): SetRoomMode use case` + `test(app): SetRoomMode integration`
+
+**T44.3** Use case `SubmitAnswer`
+
+- Charge Room, appelle `Room.submitAnswer`, sauvegarde, publish **deux** events :
+  - `submission:received` (channel public, payload masqué `{ playerId, hasTitle, hasArtist }`).
+  - `submission:received:host` (channel privé hôte, payload clair).
+- Test d'intégration : vérifier les deux événements + leurs payloads distincts.
+- Commit : `feat(app): SubmitAnswer use case with private-host event` + `test(app): SubmitAnswer publishes masked + clear events`
+
+**T44.4** Use case `ResolveInputRound`
+
+- Appelé par l'hôte : `Room.resolveInputRound` (avec `AnswerMatcher` injecté). Publish `round:resolved:input` avec saisies en clair, scoring, attendu révélé.
+- Test d'intégration.
+- Commit : `feat(app): ResolveInputRound use case` + `test(app): ResolveInputRound reveals submissions`
+
+**T44.5** Use case `OverrideAnswerOutcome`
+
+- L'hôte ajuste l'outcome d'un joueur. Publish `score:adjusted`.
+- Test d'intégration.
+- Commit : `feat(app): OverrideAnswerOutcome use case` + `test(app): override adjusts score`
+
+**T44.6** Use case `PostChatMessage`
+
+- Charge Chat, appelle `post`, sauvegarde, publish `chat:message`. Renvoie un erreur typée si Chat refuse.
+- Test d'intégration : R13 propagé en HTTP 400 via le mapping qui sera fait en T45.
+- Commit : `feat(app): PostChatMessage use case` + `test(app): PostChatMessage publishes`
+
+**T44.7** Use case `ToggleChat`
+
+- Seul l'hôte autorisé (`UnauthorizedError` sinon). Publish `chat:toggled`.
+- Test d'intégration.
+- Commit : `feat(app): ToggleChat use case` + `test(app): only host can toggle`
+
+### T45 — Infrastructure v1.1
+
+**T45.1** `InMemoryChatRepository`
+
+- `src/infrastructure/persistence/in-memory-chat-repository.ts` : Map keyed par `roomCode`.
+- Test d'intégration avec un Chat factice.
+- Commit : `feat(infra): in-memory chat repository`
+
+**T45.2** Pusher private channel pour l'hôte
+
+- `src/app/api/rooms/[code]/pusher-auth/route.ts` : étendre pour autoriser `private-host-{code}` uniquement si l'utilisateur est l'hôte de la salle (vérifier `hostId` dans Room).
+- Test d'intégration HTTP : refus si non-hôte.
+- Commit : `feat(infra): authorize private-host channel for room host only`
+
+**T45.3** Câblage DI v1.1
+
+- Module DI serveur : instancie `AnswerMatcher` (singleton), `InMemoryChatRepository`, expose les nouveaux use cases.
+- Commit : `feat(infra): wire v1.1 use cases into DI module`
+
+### T46 — API routes v1.1
+
+**T46.1** `POST /api/rooms/[code]/set-mode`
+
+- Body : `{ mode: "buzz" | "input" }`. Auth : hôte de la salle.
+- Erreurs : 409 si pas en lobby (R12), 403 si pas hôte.
+- Test HTTP.
+- Commit : `feat(infra): POST /set-mode route` + `test(infra): set-mode http`
+
+**T46.2** `POST /api/rooms/[code]/submit-answer`
+
+- Body : `{ title?: string, artist?: string }` (au moins un des deux non vide après trim).
+- Auth : joueur de la salle.
+- Erreurs : 409 si déjà soumis (R10), 409 si mode ≠ input, 400 si tour pas en lecture.
+- Test HTTP.
+- Commit : `feat(infra): POST /submit-answer route` + `test(infra): submit-answer http`
+
+**T46.3** `POST /api/rooms/[code]/resolve-input`
+
+- Auth : hôte. Déclenche `ResolveInputRound`.
+- Test HTTP.
+- Commit : `feat(infra): POST /resolve-input route` + `test(infra): resolve-input http`
+
+**T46.4** `POST /api/rooms/[code]/override-outcome`
+
+- Body : `{ playerId: string, outcome: "correct"|"half"|"wrong" }`.
+- Auth : hôte.
+- Test HTTP.
+- Commit : `feat(infra): POST /override-outcome route`
+
+**T46.5** `POST /api/rooms/[code]/chat`
+
+- Body : `{ text: string }`. Auth : tout participant. Erreurs : 400 (vide, > 200), 429 (cooldown), 403 (chat fermé pour joueur).
+- Test HTTP couvrant les 4 cas d'erreur.
+- Commit : `feat(infra): POST /chat route` + `test(infra): chat http error mapping`
+
+**T46.6** `POST /api/rooms/[code]/chat-toggle`
+
+- Auth : hôte. Bascule `isOpen`.
+- Test HTTP.
+- Commit : `feat(infra): POST /chat-toggle route`
+
+**T46.7** Enrichir `GET` état de salle / `POST /join` avec historique tchat
+
+- La réponse de `join` inclut `chat: { isOpen, messages: ChatMessage[] }`.
+- Test HTTP : un joueur qui rejoint après quelques messages les reçoit (US-82).
+- Commit : `feat(infra): include chat history on join response`
+
+### T47 — UI hôte : sélecteur de mode
+
+**T47.1** Sélecteur de mode dans le lobby hôte
+
+- `src/app/host/rooms/[code]/page.tsx` : bouton segmenté "Mode : Buzz / Saisie", désactivé si `status !== "lobby"`. Appel `POST /set-mode`. Badge visible dans la barre d'en-tête de la salle pour tous.
+- Acceptation : changer de mode dans le lobby met à jour l'UI hôte ET l'UI joueur via `room:mode-changed`.
+- Commit : `feat(ui): host mode selector in lobby`
+
+### T48 — UI hôte : panneau soumissions (mode input)
+
+**T48.1** Composant `<SubmissionsPanel>`
+
+- En mode input, remplace le panneau "buzz/validation" par une liste live des soumissions (pseudo, titre, artiste, état "en attente"/"correct"/"half"/"wrong" après résolution).
+- Bouton "Fin du tour" → appel `POST /resolve-input`.
+- Souscrit au channel `private-host-{code}` pour recevoir les saisies en clair en temps réel.
+- Commit : `feat(ui): host submissions panel for input mode`
+
+**T48.2** Override par joueur
+
+- Après résolution, chaque ligne propose 3 boutons radio (correct/half/wrong) ; un changement déclenche `POST /override-outcome`.
+- Commit : `feat(ui): host can override per-player outcome`
+
+### T49 — UI joueur : formulaire de soumission (mode input)
+
+**T49.1** Formulaire titre + artiste
+
+- `src/app/play/[code]/page.tsx` : en mode input et état tour = `playing`, affiche 2 inputs (titre, artiste) + bouton "Envoyer".
+- Validation client : au moins un des deux non vide après trim ; longueur ≤ 100. Bouton désactivé sinon.
+- Après envoi, formulaire verrouillé jusqu'à `round:resolved:input`.
+- Commit : `feat(ui): player input form for answer submission`
+
+**T49.2** Affichage masqué des soumissions des autres + révélation
+
+- Liste live "Alice •••" / "Bob •••" pour les autres joueurs (event `submission:received`).
+- À la résolution : la liste s'enrichit des saisies en clair + outcome + delta de points.
+- **Anti-fuite** : aucune ligne du formulaire ou de la liste ne référence `expectedTitle`, `expectedArtist`, `youtubeId` avant `round:resolved:input`. Pas d'import de `<YouTubePlayer>`.
+- Commit : `feat(ui): masked submissions list and reveal`
+
+### T50 — UI partagée : `<ChatPanel>`
+
+**T50.1** Composant `<ChatPanel>`
+
+- `src/presentation/components/chat-panel.tsx` : liste scrollable + input de saisie (placeholder, longueur affichée 145/200) + bouton Envoyer (Enter).
+- Auto-scroll sur nouveau message.
+- Affiche état "Tchat fermé par l'hôte" + désactivation input si `!isOpen` et role `player`.
+- Bouton "Fermer/ouvrir le tchat" visible uniquement pour l'hôte.
+- Commit : `feat(ui): shared ChatPanel component`
+
+**T50.2** Hook `useChat`
+
+- `src/presentation/hooks/use-chat.ts` : abonne le presence channel, gère l'historique reçu en `join`, expose `messages`, `isOpen`, `sendMessage`, `toggle`.
+- Mappe les erreurs HTTP (cooldown, fermé, longueur) vers des toasts UX.
+- Commit : `feat(ui): useChat hook with toast error mapping`
+
+**T50.3** Intégration dans pages hôte et joueur
+
+- Affiche `<ChatPanel>` en sidebar (desktop) / drawer (mobile) sur le lobby et la vue partie de l'hôte et des joueurs.
+- Commit : `feat(ui): mount ChatPanel on host and player pages`
+
+### T51 — E2E v1.1
+
+**T51.1** Scénario `input-happy-path`
+
+- Hôte choisit mode input dans le lobby. 2 joueurs rejoignent. Hôte démarre + joue track 1.
+- Joueur A saisit titre + artiste corrects. Joueur B saisit titre seul, correct.
+- Hôte clique "Fin du tour". Vérifier scores : A=1, B=0,5.
+- Commit : `test(e2e): input mode happy path`
+
+**T51.2** Scénario `input-anti-leak`
+
+- Pendant la lecture en mode input : `expect(playerPage.locator('body')).not.toContainText(expectedTitle)` ; idem `expectedArtist` ; `expect(await playerPage.content()).not.toContain(youtubeId)`.
+- Vérifier aussi que la saisie de l'autre joueur (`"daft punk"`) **n'est pas** dans le DOM joueur tant que `round:resolved:input` n'a pas été reçu.
+- Après résolution : tout est révélé.
+- Commit : `test(e2e): input mode never leaks expected nor opponents submissions`
+
+**T51.3** Scénario `chat-basic`
+
+- 2 joueurs s'envoient des messages, un 3e joueur rejoint et voit l'historique. Vérifier longueur max 200 (envoi de 201 caractères → message d'erreur, pas de diffusion).
+- Commit : `test(e2e): chat basic flow with history on join`
+
+**T51.4** Scénario `chat-closed`
+
+- Hôte ferme le tchat. Joueur tente d'envoyer → input désactivé / erreur. Hôte envoie un message → diffusé. Hôte rouvre.
+- Commit : `test(e2e): host can close chat for players`
+
+### T52 — Documentation v1.1
+
+**T52.1** README — section v1.1
+
+- Documenter : sélection du mode, raccourci clavier d'envoi (Enter), comportement override, fermeture du tchat.
+- Commit : `docs: README v1.1 features`
+
+---
+
 ## Récapitulatif
 
-| Phase                 | Sous-tâches | Commits attendus |
-| --------------------- | ----------- | ---------------- |
-| 0 — Squelette         | T1.1–T4.1   | 11               |
-| 1 — Domaine           | T5.1–T10.3  | 19               |
-| 2 — Application       | T11.1–T13.3 | 11               |
-| 3 — Pusher + API      | T14.1–T15.8 | 11               |
-| 4 — UI hôte           | T16.1–T20.4 | 9                |
-| 5 — UI joueur         | T21.1–T23.2 | 6                |
-| 6bis — Audio WebRTC   | T30.1–T36.2 | 11               |
-| 6 — E2E + déploiement | T24.1–T27.3 | 7                |
-| 7 — Polish            | T28.1–T29.1 | 2 (optionnels)   |
-| **Total**             |             | **~87 commits**  |
+| Phase                   | Sous-tâches | Commits attendus |
+| ----------------------- | ----------- | ---------------- |
+| 0 — Squelette           | T1.1–T4.1   | 11               |
+| 1 — Domaine             | T5.1–T10.3  | 19               |
+| 2 — Application         | T11.1–T13.3 | 11               |
+| 3 — Pusher + API        | T14.1–T15.8 | 11               |
+| 4 — UI hôte             | T16.1–T20.4 | 9                |
+| 5 — UI joueur           | T21.1–T23.2 | 6                |
+| 6bis — Audio WebRTC     | T30.1–T36.2 | 11               |
+| 6 — E2E + déploiement   | T24.1–T27.3 | 7                |
+| 7 — Polish              | T28.1–T29.1 | 2 (optionnels)   |
+| **8 — v1.1 input+chat** | **T40.1–T52.1** | **~36**       |
+| **Total**               |             | **~123 commits** |
 
-Estimation : 12–18 sessions de travail focalisées (d'1 à 2 h chacune) pour la v1 sans le polish.
+Estimation : 12–18 sessions pour la v1, +5–8 sessions pour la v1.1 (mode input + tchat).

@@ -1,7 +1,8 @@
-# Blind Test — Specification (v1)
+# Blind Test — Specification (v1.1)
 
 > Style: spec-kit `/specify`. Ce document décrit **le quoi**, pas le comment.
 > Les choix d'implémentation détaillés sont du ressort de `/plan`.
+> v1.1 ajoute : mode de réponse "saisie texte" (titre + auteur) et tchat libre par salle (§4.7, §4.8, §6.8).
 
 ## 1. Résumé
 
@@ -74,6 +75,53 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 - **US-41** L'hôte voit en plus : la réponse attendue (titre + artiste) du morceau en cours, les contrôles de lecture, les contrôles de validation.
 - **US-42** Les joueurs ne voient **jamais** la réponse attendue avant qu'elle ne soit dévoilée.
 
+### 4.7 Mode de réponse de la partie (buzz vs saisie texte)
+
+- **US-60** En tant qu'hôte, au moment de créer la salle (ou au plus tard dans le lobby, avant `start`), je choisis le **mode de réponse** de la partie :
+  - **`buzz`** (existant, comportement par défaut) : les joueurs buzzent, l'arbitrage est vocal/manuel par l'hôte (cf. §4.4).
+  - **`input`** (nouveau) : les joueurs saisissent leur réponse (titre + auteur) au clavier. L'auto-validation tranche, l'hôte peut overrider.
+- **US-61** Le mode est figé pour toute la durée de la partie : il ne peut pas changer une fois la partie démarrée. L'hôte peut le modifier tant que la salle est en `lobby`.
+- **US-62** Le mode courant est visible de tous les participants dans le lobby et pendant la partie (badge "Mode : Buzz" / "Mode : Saisie").
+
+### 4.7bis Déroulé d'une manche en mode `input`
+
+- **US-63** L'hôte démarre la lecture d'un morceau (US-31). À ce moment, chaque joueur voit apparaître un **formulaire de soumission** avec deux champs : `Titre` et `Auteur` (chacun optionnel individuellement, mais au moins un des deux doit être renseigné pour soumettre).
+- **US-64** Chaque joueur peut soumettre **une seule réponse** par tour. Une fois soumise, le formulaire est verrouillé pour ce joueur jusqu'à la fin du tour.
+- **US-65** Les autres joueurs voient en temps réel **qu'un joueur a soumis** (ex. "Alice a répondu") mais le **contenu de sa saisie est masqué** (`•••`) jusqu'à la résolution du tour. L'hôte voit le contenu de chaque soumission au fil de l'eau.
+- **US-66** Le tour se termine sur le premier des événements suivants :
+  1. Tous les joueurs (hors hôte) ont soumis leur réponse.
+  2. L'hôte clique "Fin du tour" (équivalent du "Passer" en mode buzz).
+  3. L'hôte clique "Passer" (sans réponse correcte attendue).
+- **US-67** À la fin du tour, l'app calcule le score de chaque joueur via **auto-validation** (voir §4.7ter) puis affiche à tous les joueurs : la réponse attendue (titre + artiste), les soumissions complètes (rendues lisibles), et les points attribués pour ce tour.
+- **US-68** L'hôte peut **overrider** chaque résultat individuel avant de passer au tour suivant : un panneau "ajuster" lui permet de transformer un résultat `correct` ↔ `half` ↔ `wrong` pour un joueur donné. Le scoring final reflète l'override.
+- **US-69** Si un joueur n'a pas soumis avant la fin du tour, il marque 0 point pour ce tour (ni faux ni demi : non-réponse).
+
+### 4.7ter Auto-validation des saisies (mode `input`)
+
+- **US-70** L'auto-validation compare la saisie du joueur (champs `title`, `artist`) à la réponse attendue (`expectedTitle`, `expectedArtist`) après une **normalisation** :
+  - mise en minuscules,
+  - suppression des accents (NFD + retrait des marques diacritiques),
+  - suppression de la ponctuation et des caractères non-alphanumériques (espaces compactés),
+  - trim.
+- **US-71** Une comparaison de chaîne accepte une **distance de Levenshtein ≤ 2** entre la saisie normalisée et l'attendu normalisé (tolérance fautes de frappe). Au-delà, c'est faux.
+- **US-72** Scoring (synthèse, voir aussi R10) :
+  - Titre OK **et** Auteur OK → `correct`, **1 pt**.
+  - Titre OK **ou** Auteur OK (un seul des deux) → `half`, **0,5 pt**.
+  - Aucun des deux OK → `wrong`, **0 pt**.
+  - Champ non renseigné par le joueur → traité comme "non OK" pour ce champ (donc max 0,5 pt si un seul champ rempli et juste).
+- **US-73** Quand un seul champ est attendu côté track (cas exceptionnel : artiste vide après import), l'auto-validation se fait sur le champ disponible uniquement, et `correct` = ce champ correct.
+
+### 4.8 Tchat de salle
+
+- **US-80** Toute salle (en `lobby`, `playing` ou `finished`) dispose d'un **tchat** visible de tous les participants (hôte et joueurs). Le tchat sert à la conversation (papoter, hypothèses, plaisanteries) et **n'est pas le canal de réponse** — il ne déclenche aucune validation.
+- **US-81** Tout participant connecté peut envoyer un message dans le tchat. Le message est affiché à tous les participants connectés en temps réel, avec : auteur (pseudo, ou "Hôte"), horodatage, contenu.
+- **US-82** Un joueur qui rejoint la salle reçoit l'**historique du tchat depuis le début de la salle** (mémoire serveur) afin de ne pas perdre le contexte de la conversation.
+- **US-83** Validation à l'envoi : message non vide, longueur ≤ 200 caractères. Au-delà, l'UI bloque l'envoi.
+- **US-84** Un cooldown anti-spam de **500 ms par joueur** est appliqué côté serveur ; un message envoyé pendant le cooldown est rejeté avec un message d'erreur dans l'UI émettrice (les autres ne sont pas notifiés).
+- **US-85** L'hôte peut **désactiver le tchat** depuis son panneau, soit globalement (toggle "Tchat ouvert / fermé"), soit pour un seul tour. Quand le tchat est fermé, seul l'hôte peut écrire ; les joueurs voient un état "Tchat fermé par l'hôte" et leur zone de saisie est désactivée.
+- **US-86** Le tchat est **éphémère** : son contenu vit en mémoire serveur, lié à la salle, et est **détruit avec la salle** (fin de partie ou TTL d'inactivité). Aucune persistance disque.
+- **US-87** **Anti-fuite côté joueur** : le tchat ne contient à aucun moment, dans son flux serveur → joueur, la réponse attendue (`expectedTitle`, `expectedArtist`, `youtubeId`). L'UI hôte peut taper ces termes dans le tchat (responsabilité de l'hôte), mais le système ne les y injecte jamais automatiquement (ex : pas de "réponse révélée" auto-postée — la révélation a son propre canal `round:resolved`).
+
 ### 4.6 Diffusion audio aux joueurs
 
 - **US-50** En tant qu'hôte, au démarrage de la partie, j'autorise une fois le **partage audio de l'onglet** YouTube (via `getDisplayMedia`). Le navigateur affiche un bandeau de partage que je ne peux pas masquer (limitation imposée par le navigateur).
@@ -95,6 +143,10 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 | R7    | Quitter une salle en cours ne supprime pas le score du joueur ; il peut revenir avec le même pseudo.                                    |
 | R8    | L'hôte n'est pas joueur (ne marque pas de points, ne buzze pas).                                                                        |
 | R9    | Un buzz reçu par le serveur dans les 500 ms suivant le signal `track:started` est rejeté (délai de grâce post-démarrage du flux audio). |
+| R10   | En mode `input`, un joueur ne peut soumettre **qu'une seule** réponse par tour. Une seconde soumission est rejetée.                     |
+| R11   | En mode `input`, le scoring auto-calculé est : `correct`=1pt si titre ET artiste matchent ; `half`=0,5pt si un seul matche ; `wrong`=0pt sinon. Le matching utilise la normalisation §4.7ter et Levenshtein ≤ 2. |
+| R12   | Le mode de réponse (`buzz` / `input`) ne peut pas changer une fois la salle passée à l'état `playing`.                                   |
+| R13   | Un message de tchat est rejeté si vide, > 200 caractères, ou si l'émetteur est en cooldown (< 500 ms depuis son dernier message). Si le tchat est fermé par l'hôte, seuls les messages de l'hôte sont acceptés. |
 
 ## 6. Exigences non-fonctionnelles
 
@@ -117,6 +169,19 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
   - Côté hôte : Chrome/Edge/Firefox récents sur desktop. Safari desktop supporte mais avec des limitations connues sur la capture d'audio d'onglet — l'app affiche un avertissement si le navigateur ne supporte pas `getDisplayMedia` audio.
   - Côté joueur : tout navigateur supportant WebRTC (incl. mobile).
 - **Repli en cas d'échec WebRTC** : si la connexion P2P entre l'hôte et un joueur ne s'établit pas (timeout 10 s), l'UI joueur affiche un état "Audio indisponible — demande à l'hôte de reconnecter" sans bloquer le buzz (la partie continue, l'hôte peut décider de jouer en local + Discord pour ce joueur). Pas de fallback automatique vers un autre transport en v1.
+
+### 6.8 Saisie texte et tchat
+
+- **Diffusion temps réel** : les soumissions de réponse (mode `input`) et les messages de tchat passent par le même provider pub-sub que le reste de la signalisation (Pusher v1) ; aucune infra additionnelle.
+- **Latence** : un message de tchat ou une soumission est visible des autres participants en **< 500 ms** dans des conditions internet normales (même cible que le buzz).
+- **Persistance** : tchat et soumissions vivent **uniquement en mémoire serveur**, dans la même structure éphémère que la salle. Détruits avec la salle (fin de partie ou TTL d'inactivité). Aucune écriture disque, aucun export.
+- **Anti-fuite (mode input)** : tant qu'un tour est en cours, les soumissions des autres joueurs sont **diffusées masquées** (`•••`). Le contenu en clair n'est envoyé qu'à l'hôte (canal privé) et à tous les participants au moment du `round:resolved`. Une vérification automatisée (test E2E) garantit que `expectedTitle`, `expectedArtist`, `youtubeId` et le contenu masqué des saisies adverses ne fuitent pas dans le DOM joueur pendant la lecture.
+- **Limites de taille** :
+  - message de tchat : ≤ 200 caractères, après trim.
+  - champs de saisie de réponse : ≤ 100 caractères chacun (titre, auteur).
+- **Cooldown anti-spam** : 500 ms minimum entre deux messages d'un même joueur (R13). Pas de cooldown pour l'hôte (animation).
+- **Modération** : usage privé entre amis assumé, pas de filtre de contenu, pas de bannissement. L'hôte peut fermer le tchat s'il devient gênant (US-85).
+- **Accessibilité saisie** : le formulaire de réponse est utilisable au clavier (Tab + Enter pour soumettre) ; sur mobile, l'apparition du clavier virtuel ne doit pas masquer les champs.
 
 ### 6.2 Coût
 
@@ -172,6 +237,9 @@ Room { code, hostId, status: lobby|playing|finished, players[≤8], rounds[] }
 4. **Reconnexion** : durée de la fenêtre de "même pseudo = même joueur" (proposition : 5 min après dernier signal).
 5. **Anti-abus du buzz** : faut-il une mini-pénalité (cooldown 1 s) sur le bouton buzz côté UI ? Pas de règle métier, choix UX.
 6. **TURN** : par défaut, STUN seul ; serveurs TURN configurables via env (`NEXT_PUBLIC_TURN_URL`, `NEXT_PUBLIC_TURN_USERNAME`, `NEXT_PUBLIC_TURN_CREDENTIAL`). Hors-scope v1 : héberger son propre TURN.
+7. **Tolérance Levenshtein** (mode `input`) : seuil ≤ 2 retenu pour la v1.1. Si trop laxiste/strict en pratique, paramétrer par l'hôte (slider "tolérance fautes") en v1.2.
+8. **Mode mixte buzz + saisie** : explicitement repoussé. La v1.1 limite à un mode unique par partie (R12).
+9. **Soumissions tardives** : un joueur qui ne soumet pas avant la fin du tour marque 0 (US-69). Pas de relance "encore 5 secondes". À reconsidérer si frustrant.
 
 ## 9. Critères d'acceptation v1 (Definition of Done)
 
@@ -182,6 +250,9 @@ Room { code, hostId, status: lobby|playing|finished, players[≤8], rounds[] }
 - La pyramide de tests passe en CI (unit + intégration + un E2E "happy path").
 - Le code respecte les contraintes Clean Architecture (un test architectural ou une revue documentée le valide).
 - Déploiement Vercel fonctionnel sur un domaine vercel.app.
+- En mode `input`, une partie complète peut être jouée avec ≥ 3 joueurs : chacun soumet sa réponse, l'auto-validation calcule les points, l'hôte peut overrider, et le scoring final est cohérent avec les règles R10/R11.
+- Le tchat fonctionne dans toutes les phases de la salle (lobby/playing/finished), respecte la longueur max et le cooldown (R13), et un joueur arrivant en cours de partie reçoit l'historique (US-82).
+- Un test E2E vérifie qu'aucune saisie adverse en clair, ni la réponse attendue, ne fuite dans le DOM joueur tant que le tour n'est pas résolu.
 
 ## 10. Hors-scope explicite v1
 
@@ -189,8 +260,11 @@ Room { code, hostId, status: lobby|playing|finished, players[≤8], rounds[] }
 - Playlists pré-livrées par l'app.
 - Import depuis Spotify/Deezer.
 - Import direct via une URL de playlist YouTube ou via l'API YouTube en ligne (l'import v1 se fait à partir d'un **fichier JSON** déjà obtenu, pas d'appel réseau à YouTube). La récupération automatique d'une playlist publique via clé API est hors-scope v1.
-- Mode QCM, mode saisie texte automatique.
-- Bonus de rapidité.
+- Mode QCM (réponses pré-remplies à choisir parmi N).
+- Mode mixte buzz + saisie au sein d'une même partie (R12).
+- Bonus de rapidité (en mode `input`, ordre de soumission ignoré pour le scoring v1.1).
 - Statistiques inter-parties / historique.
 - Internationalisation (FR uniquement).
-- Modération de contenu / signalement.
+- Modération de contenu / signalement (tchat brut, usage privé assumé).
+- Persistance du tchat ou des soumissions au-delà de la durée de la salle.
+- Réactions emoji / mentions / fichiers dans le tchat (texte brut uniquement).
