@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AlreadySubmittedError,
   BUZZ_GRACE_MS,
   BuzzTooEarlyError,
   InvalidRoundTransitionError,
@@ -147,5 +148,88 @@ describe("Round.markBuzzed (blocked players)", () => {
   it("rejects buzzing by an already-blocked player", () => {
     const r = Round.start(0).markBuzzed("p1").block();
     expect(() => r.markBuzzed("p1")).toThrow(PlayerAlreadyBlockedError);
+  });
+});
+
+describe("Round.submitAnswer (R10 — input mode)", () => {
+  it("records a player's submission", () => {
+    const r = Round.start(0, 1000).submitAnswer(
+      "p1",
+      { title: "One More Time", artist: "Daft Punk" },
+      2000,
+    );
+    const sub = r.submissionOf("p1");
+    expect(sub).toBeDefined();
+    expect(sub?.title).toBe("One More Time");
+    expect(sub?.artist).toBe("Daft Punk");
+    expect(sub?.at).toBe(2000);
+  });
+
+  it("preserves status and previous submissions when another player submits", () => {
+    const r = Round.start(0, 1000)
+      .submitAnswer("p1", { title: "A" }, 1500)
+      .submitAnswer("p2", { title: "B" }, 1600);
+    expect(r.status).toBe("playing");
+    expect(r.submissionOf("p1")?.title).toBe("A");
+    expect(r.submissionOf("p2")?.title).toBe("B");
+  });
+
+  it("rejects a second submission from the same player (R10)", () => {
+    const r = Round.start(0, 1000).submitAnswer("p1", { title: "A" }, 1500);
+    expect(() => r.submitAnswer("p1", { title: "B" }, 1600)).toThrow(AlreadySubmittedError);
+  });
+
+  it("rejects submission when round is not playing", () => {
+    const r = Round.start(0, 1000).markResolved("skip");
+    expect(() => r.submitAnswer("p1", { title: "A" }, 1500)).toThrow(InvalidRoundTransitionError);
+  });
+
+  it("rejects submission with neither title nor artist", () => {
+    const r = Round.start(0, 1000);
+    expect(() => r.submitAnswer("p1", {}, 1500)).toThrow();
+    expect(() => r.submitAnswer("p1", { title: "  ", artist: "  " }, 1500)).toThrow();
+  });
+});
+
+describe("Round.resolveByInput", () => {
+  const expected = { expectedTitle: "One More Time", expectedArtist: "Daft Punk" };
+
+  it("returns 'wrong' for players who did not submit (US-69)", () => {
+    const r = Round.start(0, 1000);
+    const outcomes = r.resolveByInput(expected, ["p1", "p2"]);
+    expect(outcomes.get("p1")).toBe("wrong");
+    expect(outcomes.get("p2")).toBe("wrong");
+  });
+
+  it("computes outcomes from submissions via R11 matching", () => {
+    const r = Round.start(0, 1000)
+      .submitAnswer("p1", { title: "One More Time", artist: "Daft Punk" }, 1500)
+      .submitAnswer("p2", { title: "One More Time", artist: "Justice" }, 1600)
+      .submitAnswer("p3", { title: "Smells Like Teen Spirit", artist: "Nirvana" }, 1700);
+    const outcomes = r.resolveByInput(expected, ["p1", "p2", "p3"]);
+    expect(outcomes.get("p1")).toBe("correct");
+    expect(outcomes.get("p2")).toBe("half");
+    expect(outcomes.get("p3")).toBe("wrong");
+  });
+
+  it("ignores submissions from players not in the active list", () => {
+    const r = Round.start(0, 1000).submitAnswer(
+      "ghost",
+      { title: "One More Time", artist: "Daft Punk" },
+      1500,
+    );
+    const outcomes = r.resolveByInput(expected, ["p1"]);
+    expect(outcomes.has("ghost")).toBe(false);
+    expect(outcomes.get("p1")).toBe("wrong");
+  });
+
+  it("transitions the round to resolved with outcome 'input'", () => {
+    const r = Round.start(0, 1000).submitAnswer(
+      "p1",
+      { title: "One More Time", artist: "Daft Punk" },
+      1500,
+    );
+    const next = r.markResolvedByInput();
+    expect(next.status).toBe("resolved");
   });
 });
