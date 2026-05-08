@@ -136,6 +136,22 @@ export default function PlaylistEditorPage() {
       return;
     }
     const { code } = (await res.json()) as { code: string };
+    // Stash the playlist for the host room page (it doesn't go through the
+    // server, the server keeps the Room aggregate but not the playable
+    // shape needed by the YouTube player).
+    window.localStorage.setItem(
+      `bt:room-playlist:${code}`,
+      JSON.stringify({
+        id: playlist.id,
+        name: playlist.name,
+        tracks: playlist.tracks.map((t) => ({
+          expectedTitle: t.expectedTitle,
+          expectedArtist: t.expectedArtist,
+          youtubeId: t.youtubeId,
+          ...(t.startSeconds !== undefined ? { startSeconds: t.startSeconds } : {}),
+        })),
+      }),
+    );
     router.push(`/host/rooms/${code}`);
   };
 
