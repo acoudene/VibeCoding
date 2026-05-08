@@ -1,7 +1,14 @@
+import { matchAnswer, type ExpectedAnswer, type MatchOutcome } from "./answer-matcher";
 import type { PlayerId } from "./player";
 
 export type RoundStatus = "playing" | "buzzed" | "resolved";
 export type RoundOutcome = "correct" | "wrong" | "half" | "skip";
+
+export interface Submission {
+  readonly title?: string;
+  readonly artist?: string;
+  readonly at: number;
+}
 
 export const BUZZ_GRACE_MS = 500;
 
@@ -26,6 +33,20 @@ export class BuzzTooEarlyError extends Error {
   }
 }
 
+export class AlreadySubmittedError extends Error {
+  constructor(playerId: PlayerId) {
+    super(`Player "${playerId}" has already submitted an answer for this round`);
+    this.name = "AlreadySubmittedError";
+  }
+}
+
+export class EmptySubmissionError extends Error {
+  constructor() {
+    super("Submission must include at least one of: title, artist");
+    this.name = "EmptySubmissionError";
+  }
+}
+
 export class Round {
   readonly trackIndex: number;
   readonly status: RoundStatus;
@@ -34,6 +55,7 @@ export class Round {
   readonly buzzedAt?: number;
   readonly blockedPlayerIds: ReadonlySet<PlayerId>;
   readonly outcome?: RoundOutcome;
+  readonly submissions: ReadonlyMap<PlayerId, Submission>;
 
   private constructor(args: {
     trackIndex: number;
@@ -43,6 +65,7 @@ export class Round {
     buzzedAt?: number;
     blockedPlayerIds: ReadonlySet<PlayerId>;
     outcome?: RoundOutcome;
+    submissions: ReadonlyMap<PlayerId, Submission>;
   }) {
     this.trackIndex = args.trackIndex;
     this.status = args.status;
@@ -51,6 +74,7 @@ export class Round {
     this.buzzedAt = args.buzzedAt;
     this.blockedPlayerIds = args.blockedPlayerIds;
     this.outcome = args.outcome;
+    this.submissions = args.submissions;
   }
 
   static start(trackIndex: number, startedAt: number = 0): Round {
@@ -59,6 +83,7 @@ export class Round {
       status: "playing",
       startedAt,
       blockedPlayerIds: new Set(),
+      submissions: new Map(),
     });
   }
 
@@ -68,6 +93,7 @@ export class Round {
       status: "playing",
       startedAt,
       blockedPlayerIds: previous.blockedPlayerIds,
+      submissions: new Map(),
     });
   }
 
@@ -91,6 +117,7 @@ export class Round {
       currentBuzzer: playerId,
       buzzedAt: at,
       blockedPlayerIds: this.blockedPlayerIds,
+      submissions: this.submissions,
     });
   }
 
@@ -110,6 +137,7 @@ export class Round {
       buzzedAt: this.buzzedAt,
       blockedPlayerIds: this.blockedPlayerIds,
       outcome,
+      submissions: this.submissions,
     });
   }
 
@@ -124,6 +152,68 @@ export class Round {
       status: "playing",
       startedAt: this.startedAt,
       blockedPlayerIds: nextBlocked,
+      submissions: this.submissions,
+    });
+  }
+
+  submissionOf(playerId: PlayerId): Submission | undefined {
+    return this.submissions.get(playerId);
+  }
+
+  submitAnswer(
+    playerId: PlayerId,
+    submission: { title?: string; artist?: string },
+    at: number,
+  ): Round {
+    if (this.status !== "playing") {
+      throw new InvalidRoundTransitionError(this.status, "submitAnswer");
+    }
+    if (this.submissions.has(playerId)) throw new AlreadySubmittedError(playerId);
+    const title = submission.title?.trim();
+    const artist = submission.artist?.trim();
+    if ((title === undefined || title === "") && (artist === undefined || artist === "")) {
+      throw new EmptySubmissionError();
+    }
+    const next = new Map(this.submissions);
+    next.set(playerId, { title, artist, at });
+    return new Round({
+      trackIndex: this.trackIndex,
+      status: this.status,
+      startedAt: this.startedAt,
+      currentBuzzer: this.currentBuzzer,
+      buzzedAt: this.buzzedAt,
+      blockedPlayerIds: this.blockedPlayerIds,
+      submissions: next,
+    });
+  }
+
+  resolveByInput(
+    expected: ExpectedAnswer,
+    activePlayerIds: readonly PlayerId[],
+  ): Map<PlayerId, MatchOutcome> {
+    const outcomes = new Map<PlayerId, MatchOutcome>();
+    for (const playerId of activePlayerIds) {
+      const submission = this.submissions.get(playerId);
+      if (submission === undefined) {
+        outcomes.set(playerId, "wrong");
+        continue;
+      }
+      outcomes.set(playerId, matchAnswer(submission, expected).outcome);
+    }
+    return outcomes;
+  }
+
+  markResolvedByInput(): Round {
+    if (this.status !== "playing") {
+      throw new InvalidRoundTransitionError(this.status, "markResolvedByInput");
+    }
+    return new Round({
+      trackIndex: this.trackIndex,
+      status: "resolved",
+      startedAt: this.startedAt,
+      blockedPlayerIds: this.blockedPlayerIds,
+      outcome: undefined,
+      submissions: this.submissions,
     });
   }
 }
