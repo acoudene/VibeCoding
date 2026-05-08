@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { levenshtein, normalize } from "./answer-matcher";
+import { levenshtein, matchAnswer, normalize } from "./answer-matcher";
 
 describe("AnswerMatcher", () => {
   describe("normalize", () => {
@@ -56,6 +56,70 @@ describe("AnswerMatcher", () => {
       expect(levenshtein("kitten", "sitting")).toBe(3);
       expect(levenshtein("daft", "draft")).toBe(1);
       expect(levenshtein("beatles", "beetles")).toBe(1);
+    });
+  });
+
+  describe("matchAnswer", () => {
+    const expected = { expectedTitle: "One More Time", expectedArtist: "Daft Punk" };
+
+    it("is correct when title and artist both match exactly", () => {
+      expect(
+        matchAnswer({ title: "One More Time", artist: "Daft Punk" }, expected),
+      ).toEqual({ titleOk: true, artistOk: true, outcome: "correct" });
+    });
+
+    it("tolerates typos within Levenshtein <= 2 on normalized values", () => {
+      expect(
+        matchAnswer({ title: "one more tim", artist: "daftpunk" }, expected),
+      ).toMatchObject({ outcome: "correct" });
+    });
+
+    it("rejects typos beyond Levenshtein 2", () => {
+      expect(
+        matchAnswer({ title: "wun more thyme", artist: "Daft Punk" }, expected),
+      ).toMatchObject({ titleOk: false, artistOk: true, outcome: "half" });
+    });
+
+    it("is half when only the title matches", () => {
+      expect(
+        matchAnswer({ title: "One More Time", artist: "Justice" }, expected),
+      ).toEqual({ titleOk: true, artistOk: false, outcome: "half" });
+    });
+
+    it("is half when only the artist matches", () => {
+      expect(
+        matchAnswer({ title: "Around the World", artist: "Daft Punk" }, expected),
+      ).toEqual({ titleOk: false, artistOk: true, outcome: "half" });
+    });
+
+    it("is wrong when neither matches", () => {
+      expect(
+        matchAnswer({ title: "Smells Like Teen Spirit", artist: "Nirvana" }, expected),
+      ).toEqual({ titleOk: false, artistOk: false, outcome: "wrong" });
+    });
+
+    it("treats missing submitted fields as not OK", () => {
+      expect(
+        matchAnswer({ title: "One More Time" }, expected),
+      ).toEqual({ titleOk: true, artistOk: false, outcome: "half" });
+      expect(
+        matchAnswer({ artist: "Daft Punk" }, expected),
+      ).toEqual({ titleOk: false, artistOk: true, outcome: "half" });
+      expect(matchAnswer({}, expected)).toEqual({
+        titleOk: false,
+        artistOk: false,
+        outcome: "wrong",
+      });
+    });
+
+    it("when track has no expected artist, judges only the title", () => {
+      const titleOnlyTrack = { expectedTitle: "Mystery", expectedArtist: undefined };
+      expect(
+        matchAnswer({ title: "Mystery", artist: "anything" }, titleOnlyTrack),
+      ).toEqual({ titleOk: true, artistOk: true, outcome: "correct" });
+      expect(
+        matchAnswer({ title: "Wrong" }, titleOnlyTrack),
+      ).toMatchObject({ titleOk: false, outcome: "wrong" });
     });
   });
 });
