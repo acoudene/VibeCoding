@@ -69,8 +69,7 @@ export default function HostRoomPage() {
       { code, playerId: hostId, nickname: "Host" },
       {
         onSubscriptionSucceeded: (list) => setMembers(list.filter((m) => m.id !== hostId)),
-        onMemberAdded: (m) =>
-          setMembers((prev) => (m.id === hostId ? prev : [...prev, m])),
+        onMemberAdded: (m) => setMembers((prev) => (m.id === hostId ? prev : [...prev, m])),
         onMemberRemoved: (m) => setMembers((prev) => prev.filter((x) => x.id !== m.id)),
       },
     );

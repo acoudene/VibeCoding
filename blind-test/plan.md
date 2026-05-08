@@ -90,6 +90,7 @@ BlindTest/
 │   │   ├── player.ts                 # value object Player
 │   │   ├── playlist.ts               # value objects Playlist, Track
 │   │   ├── room-code.ts              # generator + validator (alphabet sans O/0/I/1)
+│   │   ├── playlist-import.ts        # parsers purs : natif + YouTube playlistItemListResponse
 │   │   └── errors.ts                 # erreurs de domaine typées
 │   ├── application/
 │   │   ├── ports/
@@ -267,6 +268,7 @@ Chaque tâche doit se terminer par un commit, lint+typecheck+tests verts.
 
 - **T5 (D)** : `Player`, `Track`, `Playlist` (value objects). Tests d'invariants (pseudo non vide, longueur, etc.).
 - **T6 (D)** : `RoomCode` — générateur + validateur (alphabet sans O/0/I/1, longueur 6). Tests.
+- **T6bis (D)** : `playlist-import.ts` — fonctions pures `detectFormat(json)`, `parseNativePlaylist(json)`, `parseYouTubePlaylist(json)`. Heuristique `Artiste - Titre`, nettoyage des suffixes `(Official Video)` etc., tri par `snippet.position`, filtrage des items non-jouables. Renvoie `{ playlist, imported, skipped }`. Tests TDD couvrant tous les cas (cf. `spec.md` US-06) à partir du fichier `playlist.json` de la racine utilisé comme fixture.
 - **T7 (D)** : `Room.create` + `join` + `leave`. Tests : 8 max, pseudo unique, host non joueur (R8).
 - **T8 (D)** : `Room.start` + `playNextTrack` + statuts. Tests transitions valides/invalides.
 - **T9 (D)** : `Round` + `Room.buzz`. Tests R1, R2, R3 (déterminisme via timestamp d'entrée), R4.
@@ -286,7 +288,7 @@ Chaque tâche doit se terminer par un commit, lint+typecheck+tests verts.
 ### Phase 4 — UI hôte (2–3 sessions)
 
 - **T16 (P)** : Page `/` avec deux boutons (créer / rejoindre).
-- **T17 (P)** : Page `/host/playlists` — CRUD LocalStorage + import/export JSON. Composant `<TrackForm>`.
+- **T17 (P)** : Page `/host/playlists` — CRUD LocalStorage + import/export JSON (détection auto natif vs YouTube via `playlist-import.ts`). Composant `<TrackForm>`. Récap `"X / Y morceaux importés"` après un import YouTube.
 - **T18 (I)** : `LocalStoragePlaylistRepository` (côté client uniquement).
 - **T19 (P)** : Page `/host/rooms/[code]` — lobby (liste joueurs via presence Pusher) + bouton démarrer.
 - **T20 (P)** : Vue partie hôte — lecteur YouTube embed, bouton "play next", panneau validation (Correct / Faux / Demi / Passer), réponse attendue affichée.
@@ -331,6 +333,8 @@ Une tâche est terminée quand :
 
 ## 13. Ordre d'attaque recommandé
 
-T1 → T2 → T3 → T5 → T6 → T7 → T8 → T9 → T10 → T11 → T12 → T13 → T14 → T15 → T16 → T19 → T20 → T21 → T22 → T17 → T18 → T23 → T24 → T25 → T26 → T27.
+T1 → T2 → T3 → T5 → T6 → T6bis → T7 → T8 → T9 → T10 → T11 → T12 → T13 → T14 → T15 → T16 → T19 → T20 → T21 → T22 → T17 → T18 → T23 → T24 → T25 → T26 → T27.
+
+(`T6bis` est placé tôt en Phase 1 car c'est du domaine pur — utile pour développer sans se bloquer sur la saisie manuelle de tracks. La consommation par l'UI se fait plus tard en T17.)
 
 (Les playlists CRUD T17/T18 sont volontairement repoussées : on peut tester le moteur de jeu avec une playlist hardcodée d'abord.)

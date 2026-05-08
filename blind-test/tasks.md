@@ -118,6 +118,54 @@
 - Tests : avec rng déterministe, sortie reproductible, toujours valide.
 - Commit : `feat(domain): add deterministic room code generator`
 
+### T6bis — Import de playlist (parser pur)
+
+> Domaine pur, aucune I/O. Fixture : copier `playlist.json` (racine du repo) vers `tests/unit/fixtures/youtube-playlist.json`.
+
+**T6bis.1** Détection de format
+
+- `detectFormat(json: unknown): "native" | "youtube" | "unknown"`.
+  - `"youtube"` ssi `kind === "youtube#playlistItemListResponse"`.
+  - `"native"` ssi structure de l'export natif (présence d'un champ `tracks: Track[]` + `name`).
+  - `"unknown"` sinon.
+- Tests : trois cas + JSON malformé → `"unknown"`.
+- Commit : `feat(domain): add playlist format detector`
+
+**T6bis.2** Parseur natif
+
+- `parseNativePlaylist(json): { playlist: Playlist; imported: number; skipped: number }`.
+- Validation Zod du schéma natif. Erreur typée `InvalidPlaylistFileError` si non conforme.
+- Commit : `feat(domain): add native playlist parser`
+
+**T6bis.3** Heuristique `Artiste - Titre`
+
+- Fonction pure `parseTitleArtist(rawTitle: string, fallbackArtist: string): { title: string; artist: string }`.
+- Étapes : retirer suffixes parasites entre `()` ou `[]` (regex insensible à la casse sur `Official Video`, `Official Music Video`, `Clip Officiel`, `Audio`, `Lyrics`, `HD`, `4K`, `Visualizer`, `Lyric Video`), trim, puis split sur `-` (premier match) → `{ artist, title }`. Si pas de séparateur → `{ artist: fallbackArtist, title: cleaned }`.
+- Tests : cas Lizzo (`"Lizzo - Juice (Official Video)"` → `{artist:"Lizzo", title:"Juice"}`), SAULE (`[CLIP OFFICIEL]`), titre sans tiret, titre avec plusieurs `-` (split sur le premier), titre vide → erreur.
+- Commit : `feat(domain): add title/artist heuristic parser`
+
+**T6bis.4** Parseur YouTube `playlistItemListResponse`
+
+- `parseYouTubePlaylist(json, opts?: { now?: () => Date }): { playlist: Playlist; imported: number; skipped: number }`.
+- Validation Zod laxe (on ne vérifie que les champs utilisés : `kind`, `items[].snippet.{title,position,resourceId.videoId,videoOwnerChannelTitle}`).
+- Pour chaque item :
+  - skip si `videoId` absent/vide ou si `title ∈ {"Private video", "Deleted video", "[Private video]", "[Deleted video]"}`.
+  - sinon : `youtubeId = videoId`, applique `parseTitleArtist(title, videoOwnerChannelTitle)`, `startSeconds = undefined`.
+- Tri par `snippet.position` croissant ; à défaut, ordre d'apparition.
+- Nom de la playlist générée : `"Import YouTube — YYYY-MM-DD"` (date issue de `opts.now()` injectable, défaut `new Date()` — pour rester pur, le caller injecte la date).
+- Tests :
+  - sur la fixture `youtube-playlist.json` : `imported === 46`, `skipped === 0`, `playlist.tracks.length === 46`.
+  - tracks ordonnés par position (vérifier 1er = `XaCrQL_8eMY` Lizzo, 2e = `8mCLc332sTM` SAULE).
+  - cas synthétiques : item `"Private video"` skippé, item sans `videoId` skippé, item avec position désordonnée → tri correct, items multiples skipés → compteur correct.
+  - `kind` manquant → `InvalidPlaylistFileError`.
+- Commit : `feat(domain): add youtube playlistItemListResponse parser`
+
+**T6bis.5** Façade `importPlaylist`
+
+- `importPlaylist(json, opts?): { playlist; imported; skipped; format: "native"|"youtube" }` qui orchestre `detectFormat` puis dispatche. `"unknown"` → `InvalidPlaylistFileError`.
+- Tests : dispatch correct sur les deux fixtures, erreur sur format inconnu.
+- Commit : `feat(domain): add importPlaylist facade`
+
 ### T7 — Room : création, join, leave
 
 **T7.1** `Room.create(code, hostId, playlist, clock)`
@@ -363,10 +411,14 @@
 - Formulaire `<TrackForm>` : titre, artiste, URL YouTube (extraction auto de l'ID), startSeconds. Drag-and-drop pour réordonner.
 - Commit : `feat(ui): playlist editor page`
 
-**T17.4** Export / import JSON
+**T17.4** Export / import JSON (natif + YouTube)
 
-- Export : `Blob` téléchargé. Import : `<input type="file">` + validation Zod.
-- Commit : `feat(ui): playlist json export/import`
+- Export : `Blob` téléchargé (format natif).
+- Import : `<input type="file" accept="application/json,.json">` ; appel à `importPlaylist` (T6bis.5) qui détecte automatiquement le format (natif ou YouTube `playlistItemListResponse`).
+- UI : après un import réussi, toast/banner `"X / Y morceaux importés"` (avec X = `imported`, Y = `imported + skipped`). Si `skipped > 0`, mention discrète des items écartés (vidéos privées/supprimées).
+- En cas de `InvalidPlaylistFileError` : message d'erreur explicite `"Format de fichier non reconnu (attendu : export Blind Test ou playlist YouTube)."`.
+- Pas de re-validation du format ici : la garantie vient du domaine. Aucun appel réseau.
+- Commit : `feat(ui): playlist json import with native and youtube formats`
 
 ### T18 — Déjà couvert en T17.1.
 
@@ -523,13 +575,13 @@
 | Phase                 | Sous-tâches | Commits attendus |
 | --------------------- | ----------- | ---------------- |
 | 0 — Squelette         | T1.1–T4.1   | 11               |
-| 1 — Domaine           | T5.1–T10.3  | 14               |
+| 1 — Domaine           | T5.1–T10.3  | 19               |
 | 2 — Application       | T11.1–T13.3 | 11               |
 | 3 — Pusher + API      | T14.1–T15.8 | 11               |
 | 4 — UI hôte           | T16.1–T20.4 | 9                |
 | 5 — UI joueur         | T21.1–T23.2 | 6                |
 | 6 — E2E + déploiement | T24.1–T27.3 | 6                |
 | 7 — Polish            | T28.1–T29.1 | 2 (optionnels)   |
-| **Total**             |             | **~70 commits**  |
+| **Total**             |             | **~75 commits**  |
 
 Estimation : 12–18 sessions de travail focalisées (d'1 à 2 h chacune) pour la v1 sans le polish.

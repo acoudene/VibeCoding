@@ -28,6 +28,19 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 - **US-03** En tant qu'hôte, je peux dupliquer une playlist pour en faire une variante.
 - **US-04** En tant qu'hôte, je peux exporter une playlist au format JSON et en importer une.
 - **US-05** Mes playlists persistent entre mes sessions sur le même navigateur (LocalStorage v1).
+- **US-06** En tant qu'hôte, je peux importer une playlist au **format YouTube Data API v3** (`playlistItemListResponse`, c.-à-d. l'objet retourné par `GET /youtube/v3/playlistItems`, dont un exemple est fourni dans `playlist.json` à la racine). L'app détecte automatiquement le format du fichier déposé (natif ou YouTube) ; aucune sélection manuelle n'est demandée à l'hôte.
+
+  **Mapping YouTube → Track :**
+  - `snippet.resourceId.videoId` → `youtubeId`.
+  - `snippet.title` est interprété par l'heuristique **"Artiste - Titre"** : si la chaîne contient un séparateur `-` (espace-tiret-espace), la portion avant devient `expectedArtist` et celle après devient `expectedTitle`. Les suffixes parasites entre parenthèses ou crochets (`(Official Video)`, `[CLIP OFFICIEL]`, `(Audio)`, `(Lyrics)`, `[HD]`, `(Official Music Video)`, etc.) sont retirés du titre.
+  - Si `snippet.title` ne contient **pas** de séparateur `-`, alors : `expectedTitle` = `snippet.title` nettoyé, et `expectedArtist` = `snippet.videoOwnerChannelTitle` (fallback).
+  - `startSeconds` n'est pas fourni par l'API YouTube : laissé indéfini (départ à 0).
+  - Le champ `snippet.position` détermine l'ordre des tracks dans la playlist importée ; à défaut, l'ordre du tableau `items` est conservé.
+  - Le nom de la playlist importée n'est pas présent dans `playlistItemListResponse` (qui ne décrit que les items) : l'app génère un nom par défaut (`Import YouTube — <date>`) que l'hôte peut renommer.
+
+  **Items non-jouables :** un item est considéré non-jouable si `snippet.resourceId.videoId` est absent / vide, ou si `snippet.title` ∈ {`Private video`, `Deleted video`, `[Private video]`, `[Deleted video]`}. Ces items sont **écartés silencieusement** lors de l'import. L'UI affiche un message récapitulatif `"X / Y morceaux importés"` (X = importés, Y = total dans le fichier source).
+
+  **Validation du fichier :** rejet si le JSON ne contient pas `kind: "youtube#playlistItemListResponse"` au niveau racine **ni** la structure du format natif. Un message d'erreur explicite l'indique. La détection se fait sur ces deux marqueurs uniquement (pas d'inférence floue).
 
 ### 4.2 Création / cycle de vie d'une salle
 
@@ -149,7 +162,8 @@ Room { code, hostId, status: lobby|playing|finished, players[≤8], rounds[] }
 
 - Comptes utilisateurs et auth.
 - Playlists pré-livrées par l'app.
-- Import depuis Spotify/Deezer/playlists YouTube publiques.
+- Import depuis Spotify/Deezer.
+- Import direct via une URL de playlist YouTube ou via l'API YouTube en ligne (l'import v1 se fait à partir d'un **fichier JSON** déjà obtenu, pas d'appel réseau à YouTube). La récupération automatique d'une playlist publique via clé API est hors-scope v1.
 - Mode QCM, mode saisie texte automatique.
 - Bonus de rapidité.
 - Statistiques inter-parties / historique.

@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { Playlist } from "@/domain/playlist";
+import { importPlaylist, InvalidPlaylistFileError } from "@/domain/playlist-import";
 import { Track } from "@/domain/track";
 import { LocalStoragePlaylistRepository } from "@/infrastructure/persistence/local-storage-playlist-repository";
-import { PlaylistSchema } from "@/infrastructure/persistence/playlist-schema";
 
 const repo = new LocalStoragePlaylistRepository();
 
@@ -14,6 +14,10 @@ const newId = () => globalThis.crypto?.randomUUID?.() ?? Math.random().toString(
 
 export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [importMessage, setImportMessage] = useState<{
+    kind: "success" | "error";
+    text: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = () => repo.list().then(setPlaylists);
@@ -86,11 +90,15 @@ export default function PlaylistsPage() {
     if (!file) return;
     try {
       const text = await file.text();
-      const parsed = PlaylistSchema.parse(JSON.parse(text));
+      const json: unknown = JSON.parse(text);
+      const result = importPlaylist(json, { idFactory: newId });
+      // The domain parser already returns a Playlist with a generated id;
+      // we still re-emit through Playlist.create with a fresh id to avoid
+      // collisions with existing entries when re-importing the same file.
       const playlist = Playlist.create({
         id: newId(),
-        name: parsed.name,
-        tracks: parsed.tracks.map((t) =>
+        name: result.playlist.name,
+        tracks: result.playlist.tracks.map((t) =>
           Track.create({
             expectedTitle: t.expectedTitle,
             expectedArtist: t.expectedArtist,
@@ -100,9 +108,27 @@ export default function PlaylistsPage() {
         ),
       });
       await repo.save(playlist);
+      const total = result.imported + result.skipped;
+      setImportMessage({
+        kind: "success",
+        text:
+          result.format === "youtube"
+            ? `Import YouTube : ${result.imported} / ${total} morceaux importés${
+                result.skipped > 0
+                  ? ` (${result.skipped} ignorés : vidéos privées ou supprimées)`
+                  : ""
+              }.`
+            : `Playlist importée (${result.imported} morceaux).`,
+      });
       refresh();
     } catch (err) {
-      window.alert(`Import impossible : ${err instanceof Error ? err.message : "format invalide"}`);
+      const text =
+        err instanceof InvalidPlaylistFileError
+          ? "Format de fichier non reconnu (attendu : export Blind Test ou playlist YouTube)."
+          : err instanceof Error
+            ? `Import impossible : ${err.message}`
+            : "Import impossible.";
+      setImportMessage({ kind: "error", text });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -136,6 +162,28 @@ export default function PlaylistsPage() {
           />
         </div>
       </div>
+
+      {importMessage && (
+        <div
+          role={importMessage.kind === "error" ? "alert" : "status"}
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            importMessage.kind === "error"
+              ? "border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+              : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <span>{importMessage.text}</span>
+            <button
+              type="button"
+              onClick={() => setImportMessage(null)}
+              className="text-xs underline"
+            >
+              fermer
+            </button>
+          </div>
+        </div>
+      )}
 
       {playlists.length === 0 ? (
         <p className="text-zinc-500">
