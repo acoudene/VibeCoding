@@ -1,3 +1,4 @@
+export { FakeChatRepository } from "./fake-chat-repository";
 export { FakeClock } from "./fake-clock";
 export { FakeCodeGenerator } from "./fake-code-generator";
 export { FakeRealtimeChannel, type PublishedEvent } from "./fake-realtime-channel";
