@@ -26,10 +26,13 @@ const RULES: LayerRule[] = [
   },
 ];
 
-const RELATIVE_EQUIVALENTS: Record<string, string[]> = {
-  "@/application": ["src/application", "/application/"],
-  "@/infrastructure": ["src/infrastructure", "/infrastructure/"],
-  "@/app": ["src/app", "/app/"],
+// Maps each forbidden alias to the exact src/<dir> segment it represents.
+// We match on full path segments (e.g. "/src/app/" not just "/app/") to avoid
+// confusing src/app with src/application or other "app*" prefixed folders.
+const RELATIVE_EQUIVALENTS: Record<string, string> = {
+  "@/application": "src/application",
+  "@/infrastructure": "src/infrastructure",
+  "@/app": "src/app",
 };
 
 const IMPORT_LINE = /^\s*(?:import\s[^;]*?from\s+|import\s+)["']([^"']+)["']/gm;
@@ -46,7 +49,9 @@ function violatesAlias(specifier: string, forbiddenAlias: string): boolean {
 function violatesRelative(specifier: string, importerDir: string, forbiddenAlias: string): boolean {
   if (!specifier.startsWith(".")) return false;
   const resolved = path.resolve(importerDir, specifier).replace(/\\/g, "/");
-  return RELATIVE_EQUIVALENTS[forbiddenAlias]!.some((needle) => resolved.includes(needle));
+  const segment = RELATIVE_EQUIVALENTS[forbiddenAlias]!;
+  // Exact path-segment match: "/src/app/" or trailing "/src/app".
+  return resolved.includes(`/${segment}/`) || resolved.endsWith(`/${segment}`);
 }
 
 function extractSpecifiers(source: string): string[] {
