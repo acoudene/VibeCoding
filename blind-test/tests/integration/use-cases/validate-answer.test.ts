@@ -41,14 +41,17 @@ const setup = async (trackCount = 2) => {
   const join = new JoinRoom({ repo, channel });
   await join.execute({ code: "ABCDEF", playerId: "p1", nickname: "Alice" });
   await join.execute({ code: "ABCDEF", playerId: "p2", nickname: "Bob" });
-  await new StartGame({ repo, channel }).execute({ code: "ABCDEF", hostId: "host-1" });
+  await new StartGame({ repo, channel, clock }).execute({ code: "ABCDEF", hostId: "host-1" });
+  // Advance past the buzz grace period so existing tests can buzz immediately.
+  clock.advance(600);
   const buzz = new Buzz({ repo, channel, clock });
   channel.published.length = 0;
   return {
-    validate: new ValidateAnswer({ repo, channel }),
+    validate: new ValidateAnswer({ repo, channel, clock }),
     buzz,
     repo,
     channel,
+    clock,
   };
 };
 

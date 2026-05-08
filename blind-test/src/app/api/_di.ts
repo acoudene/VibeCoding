@@ -36,10 +36,10 @@ function build(): Container {
     channel,
     createRoom: new CreateRoom({ repo, channel, clock, codeGenerator }),
     joinRoom: new JoinRoom({ repo, channel }),
-    startGame: new StartGame({ repo, channel }),
-    playTrack: new PlayTrack({ repo, channel }),
+    startGame: new StartGame({ repo, channel, clock }),
+    playTrack: new PlayTrack({ repo, channel, clock }),
     buzz: new Buzz({ repo, channel, clock }),
-    validateAnswer: new ValidateAnswer({ repo, channel }),
+    validateAnswer: new ValidateAnswer({ repo, channel, clock }),
     leaveRoom: new LeaveRoom({ repo, channel }),
   };
 }

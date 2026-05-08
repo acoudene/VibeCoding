@@ -17,7 +17,9 @@
 | CI             | GitHub Actions dès le début                                                                | Lint + typecheck + unit + int sur chaque push, E2E job séparé. |
 | Méthode        | TDD strict sur le domaine                                                                  | Aligne avec objectif Clean Code.                               |
 | Déploiement    | Vercel (free tier)                                                                         | Pré-câblé Next.js.                                             |
-| Audio          | YouTube IFrame API, hôte seul diffuse                                                      | Décidé en spec §8.1.                                           |
+| Audio          | YouTube IFrame API côté hôte + capture `getDisplayMedia` + WebRTC P2P vers chaque joueur   | Décidé en spec §6.7. Anti-fuite des métadonnées vidéo.         |
+| Signalisation  | Pusher presence channel + client events (déjà en place, pas d'infra supplémentaire)        | Free tier suffit (~10 msg/joueur au setup, P2P ensuite).       |
+| ICE            | STUN public Google/Cloudflare ; TURN optionnel via env vars                                | Pas de coût v1, TURN configurable si NAT symétrique.           |
 
 ## 2. Architecture cible (Clean Architecture)
 
@@ -114,7 +116,10 @@ BlindTest/
 │   │   │   ├── in-memory-room-repository.ts
 │   │   │   └── local-storage-playlist-repository.ts
 │   │   ├── audio/
-│   │   │   └── youtube-player.ts            # wrapper IFrame API
+│   │   │   ├── youtube-player.ts            # wrapper IFrame API
+│   │   │   ├── ice-config.ts                # construction de RTCConfiguration (STUN/TURN via env)
+│   │   │   ├── audio-broadcaster.ts         # côté hôte : capture + N RTCPeerConnection (1/joueur)
+│   │   │   └── audio-receiver.ts            # côté joueur : 1 RTCPeerConnection + <audio> caché
 │   │   ├── clock/system-clock.ts
 │   │   └── code/random-code-generator.ts
 │   └── presentation/                       # composants React partagés (hooks UI, atoms)
@@ -208,7 +213,31 @@ Hôte                     API Next.js              Pusher                   Joue
   │                       │ publish "round:resolved" ├──────────────────────►│ (UI: score MAJ)
 ```
 
-Les joueurs **n'écoutent pas YouTube** chez eux ; seul l'hôte diffuse (Discord/IRL). Cela élimine la synchronisation audio multi-clients, qui serait un puits sans fond.
+Les joueurs **ne chargent pas YouTube** chez eux : ils reçoivent un flux audio WebRTC depuis l'hôte. Aucun titre, vidéo ou métadonnée ne fuite côté joueur (cf. §6.7 spec).
+
+## 6bis. Flux WebRTC (mise en place du flux audio)
+
+```
+Hôte                     Pusher (signaling)       Joueur
+  │  getDisplayMedia({audio:true})                  │
+  │  (sélection d'onglet par l'utilisateur)         │
+  │                                                 │
+  │ subscribe presence-room-{code}                  │
+  │                       presence:joined ◄─────────│ subscribe presence-room-{code}
+  │ ◄─── pc_player := new RTCPeerConnection ───────►│ pc_host := new RTCPeerConnection
+  │ pc_player.addTrack(audioTrack)                  │
+  │ offer = pc_player.createOffer()                 │
+  │ trigger "client-rtc-offer" ──────► pusher ────►│ pc_host.setRemoteDescription(offer)
+  │                                                 │ answer = pc_host.createAnswer()
+  │ pc_player.setRemoteDescription(answer) ◄────── trigger "client-rtc-answer"
+  │ ── trigger "client-rtc-ice" ──── (échange continu jusqu'à connected) ────►│
+  │                                                 │ pc_host.ontrack → <audio>.srcObject
+  │                                                 │ → audio entendu par le joueur
+```
+
+- L'hôte ouvre **N** `RTCPeerConnection` (1 par joueur). Chaque PC ne contient que **l'audio** (pas de vidéo, pas de data channel).
+- Les événements `client-rtc-offer`, `client-rtc-answer`, `client-rtc-ice` sont des **client events Pusher** envoyés directement de pair à pair via le presence channel `presence-room-{code}`. Les payloads incluent un champ `to: playerId` pour qu'un joueur n'agisse que sur les événements qui lui sont destinés.
+- **Délai de grâce R9** : le use case `Buzz` rejette tout buzz reçu avant `track.startedAt + 500ms`. Implémenté côté domaine (pure : Round expose `startedAt` ; `Room.buzz(playerId, at)` lève `BuzzTooEarlyError` si `at - round.startedAt < 500`).
 
 ## 7. Tests
 
@@ -232,6 +261,7 @@ Les joueurs **n'écoutent pas YouTube** chez eux ; seul l'hôte diffuse (Discord
 
 - 3 scénarios v1 : happy path complet sur 2 morceaux, buzz faux puis re-buzz d'un autre joueur, hôte "passe" un morceau.
 - Tourne avec un Pusher de test (`soketi` en local Docker) pour ne pas dépendre du free tier en CI.
+- **Test anti-fuite** (nouveau) : sur la vue joueur en cours de partie, vérifier que le DOM ne contient ni `videoId`, ni `expectedTitle`, ni `expectedArtist` du tour en cours. La vue YouTube n'est pas injectée côté joueur.
 
 ## 8. CI (GitHub Actions, dès la tâche 1)
 
@@ -250,6 +280,10 @@ PUSHER_CLUSTER=
 NEXT_PUBLIC_PUSHER_KEY=
 NEXT_PUBLIC_PUSHER_CLUSTER=
 NEXT_PUBLIC_YOUTUBE_API_KEY=    # optionnel (recherche, hors v1)
+# WebRTC ICE — STUN par défaut si non défini (Google + Cloudflare publics) :
+NEXT_PUBLIC_TURN_URL=           # optionnel (ex: turn:turn.example.com:3478)
+NEXT_PUBLIC_TURN_USERNAME=      # optionnel
+NEXT_PUBLIC_TURN_CREDENTIAL=    # optionnel
 ```
 
 ## 10. Découpage en tâches
@@ -306,6 +340,16 @@ Chaque tâche doit se terminer par un commit, lint+typecheck+tests verts.
 - **T26 (X)** : Playwright "passer le tour".
 - **T27 (X)** : Déploiement Vercel + variables d'env. Vérification fumée en prod.
 
+### Phase 6bis — Diffusion audio WebRTC (2 sessions)
+
+- **T30 (D)** : Étendre `Round` (`startedAt`) + règle R9 (`BuzzTooEarlyError` si `at - startedAt < 500`). Tests TDD.
+- **T31 (D/A)** : Use case `PlayTrack` met `startedAt = clock.now()` ; `Buzz` propage R9.
+- **T32 (I)** : `ice-config.ts` — construit `RTCConfiguration` depuis `process.env` (STUN par défaut, TURN si défini).
+- **T33 (I)** : `audio-broadcaster.ts` (côté hôte) — capture `getDisplayMedia` audio-only, gère N `RTCPeerConnection`, envoie offer + ICE via Pusher client events, expose `connect(playerId)`, `disconnect(playerId)`, `stop()`. Aucun import `app/`.
+- **T34 (I)** : `audio-receiver.ts` (côté joueur) — souscrit aux client events ciblés (`to === me`), reçoit le `MediaStream`, branche un `<audio autoplay>` caché. Émet `onState(state)`.
+- **T35 (P)** : `useAudioBroadcaster` (hook hôte) + indicateur d'état par joueur dans la vue hôte.
+- **T36 (P)** : `useAudioReceiver` (hook joueur) + slider volume + bouton "Réessayer" + état `connecting | connected | failed`. **Aucune métadonnée vidéo n'est rendue côté joueur** (le composant `<YouTubePlayer>` n'est jamais monté côté joueur).
+
 ### Phase 7 — Polish (optionnel)
 
 - **T28 (P)** : Petit responsive mobile pour les joueurs.
@@ -313,13 +357,16 @@ Chaque tâche doit se terminer par un commit, lint+typecheck+tests verts.
 
 ## 11. Risques & mitigations
 
-| Risque                                            | Impact                        | Mitigation                                                                           |
-| ------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------ |
-| Free tier Pusher dépassé                          | Coupure pendant une partie    | Côté UI, fallback "réessayer" + log. Reste largement sous le seuil pour usage perso. |
-| Redeploy Vercel pendant une partie                | Salles perdues (état mémoire) | Acceptable v1. Communiquer à l'hôte. Migration Redis = T29 si nécessaire.            |
-| YouTube bloque l'embed (vidéo "ne peut être lue") | Morceau injouable             | Bouton "Passer" déjà prévu (US-37).                                                  |
-| Triche client (rejouer le buzz)                   | Faussage du jeu               | Hors-scope v1 (usage perso). Le serveur arbitre, c'est suffisant.                    |
-| Latence réseau sur le buzz                        | Avantage au mieux connecté    | Inhérent au temps réel. Communiqué dans le README.                                   |
+| Risque                                              | Impact                        | Mitigation                                                                                     |
+| --------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| Free tier Pusher dépassé                            | Coupure pendant une partie    | Côté UI, fallback "réessayer" + log. Reste largement sous le seuil pour usage perso.           |
+| Redeploy Vercel pendant une partie                  | Salles perdues (état mémoire) | Acceptable v1. Communiquer à l'hôte. Migration Redis = T29 si nécessaire.                      |
+| YouTube bloque l'embed (vidéo "ne peut être lue")   | Morceau injouable             | Bouton "Passer" déjà prévu (US-37).                                                            |
+| Triche client (rejouer le buzz)                     | Faussage du jeu               | Hors-scope v1 (usage perso). Le serveur arbitre, c'est suffisant.                              |
+| Latence réseau sur le buzz                          | Avantage au mieux connecté    | Inhérent au temps réel. Communiqué dans le README.                                             |
+| `getDisplayMedia` non supporté ou refusé par l'hôte | Pas d'audio diffusé           | Bandeau d'avertissement côté UI hôte ; partie jouable mais sans audio P2P (joueurs prévenus).  |
+| NAT symétrique sur un joueur (échec ICE)            | Joueur sans audio             | STUN par défaut + TURN configurable via env vars. Bouton "Réessayer" côté joueur.              |
+| Fuite des métadonnées vidéo dans le DOM joueur      | Triche                        | Le composant `<YouTubePlayer>` est rendu **uniquement** sur la page hôte. Test E2E anti-fuite. |
 
 ## 12. Definition of Done par tâche
 
@@ -333,7 +380,7 @@ Une tâche est terminée quand :
 
 ## 13. Ordre d'attaque recommandé
 
-T1 → T2 → T3 → T5 → T6 → T6bis → T7 → T8 → T9 → T10 → T11 → T12 → T13 → T14 → T15 → T16 → T19 → T20 → T21 → T22 → T17 → T18 → T23 → T24 → T25 → T26 → T27.
+T1 → T2 → T3 → T5 → T6 → T6bis → T7 → T8 → T9 → T10 → T11 → T12 → T13 → T14 → T15 → T16 → T19 → T20 → T21 → T22 → T17 → T18 → T23 → **T30 → T31 → T32 → T33 → T34 → T35 → T36** → T24 → T25 → T26 → T27.
 
 (`T6bis` est placé tôt en Phase 1 car c'est du domaine pur — utile pour développer sans se bloquer sur la saisie manuelle de tracks. La consommation par l'UI se fait plus tard en T17.)
 

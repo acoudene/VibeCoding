@@ -74,18 +74,27 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 - **US-41** L'hôte voit en plus : la réponse attendue (titre + artiste) du morceau en cours, les contrôles de lecture, les contrôles de validation.
 - **US-42** Les joueurs ne voient **jamais** la réponse attendue avant qu'elle ne soit dévoilée.
 
+### 4.6 Diffusion audio aux joueurs
+
+- **US-50** En tant qu'hôte, au démarrage de la partie, j'autorise une fois le **partage audio de l'onglet** YouTube (via `getDisplayMedia`). Le navigateur affiche un bandeau de partage que je ne peux pas masquer (limitation imposée par le navigateur).
+- **US-51** En tant que joueur, je reçois automatiquement le flux audio diffusé par l'hôte dès que je rejoins la salle (ou dès que l'hôte démarre la partie si je suis arrivé avant). Aucun titre, aucune image et aucune métadonnée de la vidéo ne sont visibles dans mon interface ou dans le DOM de la page.
+- **US-52** En tant que joueur, je peux régler le volume du flux audio reçu (slider local, ne modifie pas la diffusion pour les autres).
+- **US-53** En cas d'échec de la connexion audio P2P (≥ 10 s sans flux), l'UI me l'indique clairement et je peux demander une **reconnexion manuelle** (bouton "Réessayer"). Cela ne bloque pas mon bouton Buzz : la partie continue, l'hôte peut décider d'arbitrer autrement.
+- **US-54** En tant qu'hôte, je vois en permanence l'état de connexion audio de chaque joueur (`connecté` / `connexion…` / `échec`).
+
 ## 5. Règles métier (synthèse pour le domaine)
 
-| Règle | Énoncé                                                                                               |
-| ----- | ---------------------------------------------------------------------------------------------------- |
-| R1    | Un buzz n'est valide que pendant l'état "lecture" du tour.                                           |
-| R2    | Un seul joueur peut détenir le buzz à un instant donné.                                              |
-| R3    | L'ordre d'arrivée des buzz est tranché côté serveur de temps réel (pas côté client).                 |
-| R4    | Un joueur ayant donné une réponse fausse sur un tour ne peut plus buzzer sur **ce tour**.            |
-| R5    | Un tour se termine sur : Correct, Demi-point, Passer, ou tous les joueurs bloqués.                   |
-| R6    | Le score est entier ou demi (pas de négatif en v1).                                                  |
-| R7    | Quitter une salle en cours ne supprime pas le score du joueur ; il peut revenir avec le même pseudo. |
-| R8    | L'hôte n'est pas joueur (ne marque pas de points, ne buzze pas).                                     |
+| Règle | Énoncé                                                                                                                                  |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| R1    | Un buzz n'est valide que pendant l'état "lecture" du tour.                                                                              |
+| R2    | Un seul joueur peut détenir le buzz à un instant donné.                                                                                 |
+| R3    | L'ordre d'arrivée des buzz est tranché côté serveur de temps réel (pas côté client).                                                    |
+| R4    | Un joueur ayant donné une réponse fausse sur un tour ne peut plus buzzer sur **ce tour**.                                               |
+| R5    | Un tour se termine sur : Correct, Demi-point, Passer, ou tous les joueurs bloqués.                                                      |
+| R6    | Le score est entier ou demi (pas de négatif en v1).                                                                                     |
+| R7    | Quitter une salle en cours ne supprime pas le score du joueur ; il peut revenir avec le même pseudo.                                    |
+| R8    | L'hôte n'est pas joueur (ne marque pas de points, ne buzze pas).                                                                        |
+| R9    | Un buzz reçu par le serveur dans les 500 ms suivant le signal `track:started` est rejeté (délai de grâce post-démarrage du flux audio). |
 
 ## 6. Exigences non-fonctionnelles
 
@@ -93,7 +102,21 @@ Application web de blind test musical multi-joueurs en ligne, à destination d'u
 
 - Latence buzz → notification "X a buzzé" sur tous les écrans : **< 500 ms** dans des conditions internet normales.
 - L'arbitrage du premier buzz est déterministe (pas de "ex æquo" perçu).
-- L'audio YouTube se met en pause **côté hôte** dès qu'un buzz est validé ; les joueurs n'ont pas besoin d'avoir l'audio chez eux (option par défaut : seul l'hôte diffuse, voir §8 question ouverte).
+- L'audio est diffusé **depuis l'hôte vers chaque joueur en WebRTC peer-to-peer** (voir §6.7) : seul l'hôte charge YouTube ; les joueurs reçoivent uniquement un flux audio anonyme (pas de titre, pas de vidéo, pas de miniature). L'hôte met en pause depuis son lecteur YouTube, ce qui propage la pause à tous les joueurs via le flux WebRTC.
+
+### 6.7 Diffusion audio (WebRTC)
+
+- **Modèle** : hôte = unique broadcaster ; chaque joueur = consommateur. Topologie en étoile : N connexions `RTCPeerConnection` indépendantes (1 par joueur).
+- **Source audio côté hôte** : capture du flux audio de l'onglet via `navigator.mediaDevices.getDisplayMedia({ video: false, audio: true })`. L'hôte sélectionne explicitement l'onglet à capturer ; le navigateur affiche un bandeau "Vous partagez l'écran" (limitation des CGU navigateur, non contournable).
+- **Anti-fuite** : le joueur ne reçoit qu'un `MediaStream` audio. Aucune métadonnée de la vidéo YouTube n'est envoyée par le canal temps réel. Le DOM côté joueur ne contient ni `videoId`, ni `expectedTitle`, ni `expectedArtist` du tour en cours.
+- **Signalisation** : SDP `offer`/`answer` et candidats ICE échangés via le canal temps réel existant (presence channel par salle, événements `client-` directs entre l'hôte et chaque joueur). Pas de message stocké côté serveur ; volume négligeable (~10 messages par paire au setup, 0 ensuite).
+- **Serveurs ICE** : STUN publics par défaut (`stun:stun.l.google.com:19302`, `stun:stun.cloudflare.com:3478`). TURN optionnel via variables d'environnement (utile uniquement pour les NAT symétriques rares) ; un fournisseur TURN gratuit suffit.
+- **Latence cible** : audio synchronisé à ≤ 200 ms entre joueurs en conditions normales (l'hôte est l'horloge de référence, chaque pair a sa propre dérive sub-perceptible).
+- **Délai de grâce post-démarrage** : à chaque début de tour, les buzz envoyés dans les **500 premières millisecondes** après le signal `track:started` sont rejetés côté serveur (R9 ci-dessous), pour neutraliser les disparités de buffering audio entre joueurs.
+- **Contraintes navigateur** :
+  - Côté hôte : Chrome/Edge/Firefox récents sur desktop. Safari desktop supporte mais avec des limitations connues sur la capture d'audio d'onglet — l'app affiche un avertissement si le navigateur ne supporte pas `getDisplayMedia` audio.
+  - Côté joueur : tout navigateur supportant WebRTC (incl. mobile).
+- **Repli en cas d'échec WebRTC** : si la connexion P2P entre l'hôte et un joueur ne s'établit pas (timeout 10 s), l'UI joueur affiche un état "Audio indisponible — demande à l'hôte de reconnecter" sans bloquer le buzz (la partie continue, l'hôte peut décider de jouer en local + Discord pour ce joueur). Pas de fallback automatique vers un autre transport en v1.
 
 ### 6.2 Coût
 
@@ -143,17 +166,19 @@ Room { code, hostId, status: lobby|playing|finished, players[≤8], rounds[] }
 
 ## 8. Questions ouvertes / décisions à confirmer en `/plan`
 
-1. **Diffusion audio** : seul l'hôte joue YouTube (les autres écoutent via Discord) **ou** chaque joueur joue YouTube en local synchronisé par signal serveur ? La v1 par défaut : **hôte seul diffuse** (plus simple, plus robuste, latence YouTube non synchronisée).
-2. **Choix Pusher vs Ably** : à trancher au `/plan` selon free tier et DX. Le domaine n'en dépend pas (port `RealtimeChannel`).
+1. **Diffusion audio** : tranchée — **hôte broadcaster + WebRTC P2P vers chaque joueur** (voir §6.7 et §4.6). La v1 initiale "hôte seul diffuse via Discord" est abandonnée.
+2. **Choix Pusher vs Ably** : Pusher conservé (presence + client events suffisent pour la signalisation WebRTC, free tier large).
 3. **Persistance** : LocalStorage v1 confirmé ; migration éventuelle vers Turso/Neon hors v1.
 4. **Reconnexion** : durée de la fenêtre de "même pseudo = même joueur" (proposition : 5 min après dernier signal).
 5. **Anti-abus du buzz** : faut-il une mini-pénalité (cooldown 1 s) sur le bouton buzz côté UI ? Pas de règle métier, choix UX.
+6. **TURN** : par défaut, STUN seul ; serveurs TURN configurables via env (`NEXT_PUBLIC_TURN_URL`, `NEXT_PUBLIC_TURN_USERNAME`, `NEXT_PUBLIC_TURN_CREDENTIAL`). Hors-scope v1 : héberger son propre TURN.
 
 ## 9. Critères d'acceptation v1 (Definition of Done)
 
 - L'hôte peut créer, lancer et terminer une partie de bout en bout sur une playlist de ≥ 5 morceaux.
 - 4 joueurs distincts peuvent jouer une partie complète, buzz inclus, sans erreur d'état.
 - Le scoring final reflète exactement la séquence de validations de l'hôte.
+- Chaque joueur entend l'audio diffusé par l'hôte via WebRTC, sans qu'aucun titre/artiste/videoId ne fuite dans son DOM (vérification automatisée par un test E2E).
 - La pyramide de tests passe en CI (unit + intégration + un E2E "happy path").
 - Le code respecte les contraintes Clean Architecture (un test architectural ou une revue documentée le valide).
 - Déploiement Vercel fonctionnel sur un domaine vercel.app.

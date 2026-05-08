@@ -39,7 +39,7 @@ const setup = async (
     await join.execute({ code: "ABCDEF", playerId: j.id, nickname: j.nickname });
   }
   channel.published.length = 0; // reset to focus on StartGame events
-  const start = new StartGame({ repo, channel });
+  const start = new StartGame({ repo, channel, clock });
   return { start, repo, channel };
 };
 

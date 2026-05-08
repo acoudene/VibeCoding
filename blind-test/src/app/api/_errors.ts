@@ -39,6 +39,7 @@ const STATUS_BY_NAME: Record<string, number> = {
   RoundNotPlayingError: 409,
   RoundNotResolvedError: 409,
   BuzzAlreadyTakenError: 409,
+  BuzzTooEarlyError: 409,
   GameNotInProgressError: 409,
   NoMoreTracksError: 409,
   InvalidRoundTransitionError: 409,

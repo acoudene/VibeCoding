@@ -38,28 +38,29 @@ const setup = async () => {
     playerId: "p1",
     nickname: "Alice",
   });
-  await new StartGame({ repo, channel }).execute({ code: "ABCDEF", hostId: "host-1" });
+  await new StartGame({ repo, channel, clock }).execute({ code: "ABCDEF", hostId: "host-1" });
   channel.published.length = 0;
-  return { play: new PlayTrack({ repo, channel }), repo, channel };
+  return { play: new PlayTrack({ repo, channel, clock }), repo, channel, clock };
 };
 
 describe("PlayTrack", () => {
-  it("publishes track:started with the trackIndex", async () => {
-    const { play, channel } = await setup();
+  it("publishes track:started with the trackIndex and startedAt from the clock", async () => {
+    const { play, channel, clock } = await setup();
+    clock.set(123_456);
     await play.execute({ code: "ABCDEF", hostId: "host-1", trackIndex: 0 });
     const events = channel.eventsOn("room-ABCDEF");
     expect(events).toHaveLength(1);
     expect(events[0]?.event).toBe("track:started");
-    expect(events[0]?.payload).toMatchObject({ trackIndex: 0 });
+    expect(events[0]?.payload).toMatchObject({ trackIndex: 0, startedAt: 123_456 });
   });
 
-  it("does not mutate the room", async () => {
-    const { play, repo } = await setup();
-    const before = await repo.find("ABCDEF");
+  it("updates the current round's startedAt with the clock value", async () => {
+    const { play, repo, clock } = await setup();
+    clock.set(999_999);
     await play.execute({ code: "ABCDEF", hostId: "host-1", trackIndex: 0 });
     const after = await repo.find("ABCDEF");
-    expect(after?.status).toBe(before?.status);
-    expect(after?.rounds).toHaveLength(before?.rounds.length ?? 0);
+    expect(after?.status).toBe("playing");
+    expect(after?.rounds.at(-1)?.startedAt).toBe(999_999);
   });
 
   it("normalizes the code", async () => {

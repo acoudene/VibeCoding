@@ -507,6 +507,115 @@
 
 ---
 
+## Phase 6bis — Diffusion audio WebRTC
+
+> Aucune dépendance externe nouvelle. Utilise les API navigateur natives (`RTCPeerConnection`, `getDisplayMedia`) et le canal Pusher existant pour la signalisation (client events).
+
+### T30 — Domaine : `Round.startedAt` + R9
+
+**T30.1** Ajouter `startedAt: number` à `Round`
+
+- Mis à `clock.now()` lors de la création du round (constructor / `Round.start`).
+- Tests : un Round nouvellement créé a `startedAt` égal à la valeur fournie.
+- Commit : `feat(domain): track round startedAt for grace period`
+
+**T30.2** R9 — `BuzzTooEarlyError`
+
+- Erreur typée dans `domain/errors.ts`.
+- `Room.buzz(playerId, at)` : refuse si `at - currentRound.startedAt < 500` ms (constante `BUZZ_GRACE_MS = 500` exportée).
+- Tests : buzz à `startedAt + 0/100/499` rejeté ; buzz à `startedAt + 500` accepté ; les autres règles R1-R4 restent prioritaires.
+- Commit : `feat(domain): R9 reject buzz during 500ms grace period`
+
+### T31 — Application : propagation R9
+
+**T31.1** `PlayTrack` injecte `startedAt` via `Clock`
+
+- À chaque appel, le use case fixe `startedAt = clock.now()` sur le round courant (le domaine recrée le round propre via `playNextTrack`).
+- Tests intégration : `track.startedAt` correspond à `FakeClock.now()` au moment de l'appel.
+- Commit : `feat(app): set startedAt on play-track`
+
+**T31.2** `Buzz` propage `BuzzTooEarlyError` en HTTP 409
+
+- Mapper l'erreur côté API (`/api/rooms/[code]/buzz`) en `409 Conflict { error: "buzz_too_early" }`.
+- Tests d'intégration HTTP couvrant le cas.
+- Commit : `feat(api): map BuzzTooEarlyError to 409`
+
+### T32 — Infrastructure : configuration ICE
+
+**T32.1** `ice-config.ts` (côté client uniquement)
+
+- Fonction pure `buildIceServers(env: { TURN_URL?, TURN_USERNAME?, TURN_CREDENTIAL? }): RTCIceServer[]`.
+- Toujours inclure `stun:stun.l.google.com:19302` et `stun:stun.cloudflare.com:3478`.
+- Si TURN défini : ajouter `{ urls: env.TURN_URL, username, credential }`.
+- Tests unitaires : 4 cas (rien défini, juste TURN_URL, TURN complet, TURN_URL sans creds → ignoré).
+- Commit : `feat(infra): build ICE servers from env`
+
+### T33 — Infrastructure : `audio-broadcaster.ts` (hôte)
+
+**T33.1** Capture audio onglet
+
+- Fonction `captureTabAudio(): Promise<MediaStream>` qui appelle `navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })` (vidéo demandée par contrainte navigateur, mais le flux vidéo n'est pas réutilisé) puis garde uniquement les pistes audio. Lève `AudioCaptureUnsupportedError` si l'API manque, `AudioCaptureDeniedError` si l'utilisateur refuse.
+- Tests : mocks de `mediaDevices` (rejet, refus, succès).
+- Commit : `feat(infra): capture tab audio via getDisplayMedia`
+
+**T33.2** Classe `AudioBroadcaster`
+
+- API : `connect(playerId)`, `disconnect(playerId)`, `disconnectAll()`, `setStream(stream)`, `onStateChange((playerId, state) => void)`.
+- Pour chaque `connect(playerId)` :
+  - Crée un `RTCPeerConnection(rtcConfig)`.
+  - `addTrack(audioTrack, stream)` pour chaque piste audio du flux capturé.
+  - `createOffer()` → `setLocalDescription` → publie `client-rtc-offer { to: playerId, sdp }`.
+  - Émet ses ICE candidates en `client-rtc-ice { to: playerId, candidate }`.
+  - Reçoit `client-rtc-answer { from: playerId, sdp }` et `client-rtc-ice { from: playerId, candidate }` filtrés sur `to === me`.
+- Émet les transitions d'état (`new → connecting → connected | failed`).
+- Tests : utilisation de stubs `RTCPeerConnection` faux (pas de vrai WebRTC en test unitaire) pour vérifier l'orchestration des messages.
+- Commit : `feat(infra): audio broadcaster (host side)`
+
+### T34 — Infrastructure : `audio-receiver.ts` (joueur)
+
+**T34.1** Classe `AudioReceiver`
+
+- API : `start()`, `stop()`, `retry()`, `setVolume(0..1)`, `onStateChange((state) => void)`.
+- À `start()` :
+  - Crée un `RTCPeerConnection(rtcConfig)`.
+  - Souscrit aux client events Pusher du presence channel ; ne traite que ceux où `to === playerId`.
+  - À réception d'une `client-rtc-offer` : `setRemoteDescription` → `createAnswer` → `setLocalDescription` → publie `client-rtc-answer`.
+  - `pc.ontrack`: branche le premier `MediaStream` audio sur un `<audio>` créé hors DOM (`new Audio()`) et `play()`.
+  - Timeout 10 s sans `connected` → état `failed`.
+- Tests : stubs `RTCPeerConnection`.
+- Commit : `feat(infra): audio receiver (player side)`
+
+### T35 — UI hôte : indicateurs audio
+
+**T35.1** Hook `useAudioBroadcaster`
+
+- Initialise `AudioBroadcaster` quand l'hôte démarre la partie. À chaque `presence:joined`, appelle `broadcaster.connect(playerId)`. À chaque `presence:left`, `broadcaster.disconnect(playerId)`.
+- Expose `Map<playerId, "connecting"|"connected"|"failed">`.
+- Commit : `feat(ui): host audio broadcaster hook`
+
+**T35.2** Bouton "Activer l'audio" + état par joueur
+
+- Avant `start()`, bouton "Activer l'audio" sur la vue hôte (déclenche `getDisplayMedia`). Si `start()` est cliqué sans audio, prompt `confirm("Démarrer sans audio ?")`.
+- Liste joueurs : pastille verte/orange/rouge selon l'état audio.
+- Commit : `feat(ui): host audio toggle and per-player status indicators`
+
+### T36 — UI joueur : audio + anti-fuite
+
+**T36.1** Hook `useAudioReceiver`
+
+- Initialise `AudioReceiver` au montage de la vue partie joueur.
+- Expose `state`, `setVolume`, `retry`.
+- Commit : `feat(ui): player audio receiver hook`
+
+**T36.2** UI : slider volume + bouton "Réessayer" + état
+
+- Sous le bouton Buzz : un petit panneau "🔊 connecté/connexion…/échec" + slider volume + bouton "Réessayer" si `failed`.
+- Vibration sur buzz conservée.
+- **Aucune** ligne de code de la vue joueur ne référence `videoId`, `expectedTitle`, `expectedArtist`, `youtubeId`. Pas d'import de `<YouTubePlayer>` dans `/play/**`.
+- Commit : `feat(ui): player audio panel and anti-leak guard`
+
+---
+
 ## Phase 6 — E2E + déploiement
 
 ### T24 — Happy path
@@ -530,6 +639,12 @@
 
 - Hôte démarre, lance track, clique Passer immédiatement (sans buzz). Track suivant. Aucun score modifié.
 - Commit : `test(e2e): host can skip a track`
+
+**T26.2** Anti-fuite côté joueur
+
+- Pendant un tour en cours : `expect(playerPage.locator('body')).not.toContainText(expectedTitle)` ; `expect(playerPage.locator('body')).not.toContainText(expectedArtist)` ; `expect(await playerPage.content()).not.toContain(videoId)` ; `expect(playerPage.locator('iframe[src*="youtube.com"]')).toHaveCount(0)`.
+- Vérifie aussi que `document.title` côté joueur ne contient pas le titre de la vidéo.
+- Commit : `test(e2e): player view never leaks track metadata`
 
 ### T27 — Déploiement
 
@@ -580,8 +695,9 @@
 | 3 — Pusher + API      | T14.1–T15.8 | 11               |
 | 4 — UI hôte           | T16.1–T20.4 | 9                |
 | 5 — UI joueur         | T21.1–T23.2 | 6                |
-| 6 — E2E + déploiement | T24.1–T27.3 | 6                |
+| 6bis — Audio WebRTC   | T30.1–T36.2 | 11               |
+| 6 — E2E + déploiement | T24.1–T27.3 | 7                |
 | 7 — Polish            | T28.1–T29.1 | 2 (optionnels)   |
-| **Total**             |             | **~75 commits**  |
+| **Total**             |             | **~87 commits**  |
 
 Estimation : 12–18 sessions de travail focalisées (d'1 à 2 h chacune) pour la v1 sans le polish.

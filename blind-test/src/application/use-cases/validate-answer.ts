@@ -1,3 +1,4 @@
+import type { Clock } from "@/application/ports/clock";
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
 import type { PlayerId } from "@/domain/player";
@@ -16,6 +17,7 @@ export type ValidateAnswerInput = {
 export type ValidateAnswerDeps = {
   repo: RoomRepository;
   channel: RealtimeChannel;
+  clock: Clock;
 };
 
 export class ValidateAnswer {
@@ -51,7 +53,7 @@ export class ValidateAnswer {
     // Resolved round — try to advance.
     let next = validated;
     try {
-      next = validated.playNextTrack();
+      next = validated.playNextTrack(this.deps.clock);
     } catch {
       // Already finished or no more tracks; leave as-is.
     }

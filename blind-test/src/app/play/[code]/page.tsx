@@ -1,12 +1,14 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import type { PresenceChannel } from "pusher-js";
 import { useEffect, useState } from "react";
 
 import { RoomCode } from "@/domain/room-code";
 import { subscribeChannel, subscribePresence } from "@/infrastructure/realtime/pusher-client";
 
 import { getSession, newPlayerId, setSession } from "../_lib/session";
+import { useAudioReceiver } from "./_lib/use-audio-receiver";
 
 type RoomStatus = "lobby" | "playing" | "finished";
 type ScoreEntry = { playerId: string; nickname: string; score: number };
@@ -37,6 +39,13 @@ export default function PlayerRoomPage() {
     blocked: false,
     buzzedSelf: false,
   });
+  const [presenceChannel, setPresenceChannel] = useState<PresenceChannel | null>(null);
+  const [hostId, setHostId] = useState<string | null>(null);
+  const audio = useAudioReceiver({
+    selfId: me?.playerId ?? "",
+    hostId: hostId ?? "",
+    presenceChannel: hostId ? presenceChannel : null,
+  });
 
   // Auto-reconnect if session exists.
   useEffect(() => {
@@ -53,11 +62,28 @@ export default function PlayerRoomPage() {
   // Realtime subscription (after join succeeds).
   useEffect(() => {
     if (!me) return;
-    const presence = subscribePresence({
-      code,
-      playerId: me.playerId,
-      nickname: me.nickname,
-    });
+    const presence = subscribePresence(
+      {
+        code,
+        playerId: me.playerId,
+        nickname: me.nickname,
+      },
+      {
+        onSubscriptionSucceeded: (members) => {
+          const host = members.find((m) => m.info.nickname === "Host");
+          if (host) setHostId(host.id);
+        },
+        onMemberAdded: (m) => {
+          if (m.info.nickname === "Host") setHostId(m.id);
+        },
+        onMemberRemoved: (m) => {
+          if (m.info.nickname === "Host") setHostId(null);
+        },
+      },
+    );
+    // Lift the presence channel out of this effect so child hooks (audio receiver) can use it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPresenceChannel(presence.channel);
     const channel = subscribeChannel(`room-${code}`);
     channel.bind("game:started", () => {
       setState((s) => ({ ...s, status: "playing" }));
@@ -94,6 +120,8 @@ export default function PlayerRoomPage() {
     });
     return () => {
       presence.unsubscribe();
+      setPresenceChannel(null);
+      setHostId(null);
     };
   }, [me, code]);
 
@@ -129,11 +157,22 @@ export default function PlayerRoomPage() {
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate(50);
     }
-    const res = await fetch(`/api/rooms/${code}/buzz`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ playerId: me.playerId }),
-    });
+    const send = () =>
+      fetch(`/api/rooms/${code}/buzz`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ playerId: me.playerId }),
+      });
+    // Auto-retry through the post-track grace period (R9 — 500 ms server-side).
+    // The user already pressed; we want them to be in line as soon as the server allows it.
+    const deadline = Date.now() + 1500;
+    let res = await send();
+    while (!res.ok && Date.now() < deadline) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (body.error !== "BuzzTooEarlyError") break;
+      await new Promise((r) => setTimeout(r, 60));
+      res = await send();
+    }
     if (!res.ok) {
       setState((s) => ({ ...s, buzzedSelf: false }));
     }
@@ -226,6 +265,51 @@ export default function PlayerRoomPage() {
       >
         {state.buzzedSelf ? "Buzzé !" : "Buzz"}
       </button>
+      <section className="border-t border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span aria-label="Statut audio" className="flex items-center gap-2">
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${
+                audio.state === "connected"
+                  ? "bg-emerald-500"
+                  : audio.state === "connecting"
+                    ? "bg-amber-500"
+                    : audio.state === "failed"
+                      ? "bg-red-500"
+                      : "bg-zinc-400"
+              }`}
+            />
+            <span>
+              {audio.state === "connected"
+                ? "Audio connecté"
+                : audio.state === "connecting"
+                  ? "Connexion audio…"
+                  : audio.state === "failed"
+                    ? "Audio indisponible"
+                    : "Audio en attente"}
+            </span>
+          </span>
+          {audio.state === "failed" ? (
+            <button
+              type="button"
+              onClick={audio.retry}
+              className="rounded px-2 py-1 text-blue-600 underline"
+            >
+              Réessayer
+            </button>
+          ) : null}
+          <input
+            aria-label="Volume"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            defaultValue={1}
+            onChange={(e) => audio.setVolume(Number(e.target.value))}
+            className="ml-2 w-24"
+          />
+        </div>
+      </section>
       <aside className="border-t border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <ul className="space-y-1 text-sm">
           {state.scores

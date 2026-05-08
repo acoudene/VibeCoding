@@ -5,7 +5,12 @@ import { CreateRoom } from "@/application/use-cases/create-room";
 import { JoinRoom, RoomNotFoundError } from "@/application/use-cases/join-room";
 import { StartGame } from "@/application/use-cases/start-game";
 import { Playlist } from "@/domain/playlist";
-import { BuzzAlreadyTakenError, GameNotInProgressError, PlayerNotInRoomError } from "@/domain/room";
+import {
+  BuzzAlreadyTakenError,
+  BuzzTooEarlyError,
+  GameNotInProgressError,
+  PlayerNotInRoomError,
+} from "@/domain/room";
 import { Track } from "@/domain/track";
 
 import {
@@ -38,7 +43,9 @@ const setup = async (start = true) => {
   await join.execute({ code: "ABCDEF", playerId: "p1", nickname: "Alice" });
   await join.execute({ code: "ABCDEF", playerId: "p2", nickname: "Bob" });
   if (start) {
-    await new StartGame({ repo, channel }).execute({ code: "ABCDEF", hostId: "host-1" });
+    await new StartGame({ repo, channel, clock }).execute({ code: "ABCDEF", hostId: "host-1" });
+    // Advance past the buzz grace period so existing tests can buzz immediately.
+    clock.advance(600);
   }
   channel.published.length = 0;
   return { buzz: new Buzz({ repo, channel, clock }), repo, channel, clock };
@@ -55,10 +62,12 @@ describe("Buzz", () => {
 
   it("uses the injected clock for the buzz timestamp", async () => {
     const { buzz, repo, clock } = await setup();
-    clock.set(42_000);
+    // Advance past the grace period; absolute value is what matters for buzzedAt.
+    clock.advance(10_000);
+    const expected = clock.now();
     await buzz.execute({ code: "ABCDEF", playerId: "p1" });
     const room = await repo.find("ABCDEF");
-    expect(room?.rounds.at(-1)?.buzzedAt).toBe(42_000);
+    expect(room?.rounds.at(-1)?.buzzedAt).toBe(expected);
   });
 
   it("publishes buzz:taken with playerId and nickname", async () => {
@@ -102,6 +111,28 @@ describe("Buzz", () => {
     const { buzz } = await setup();
     await expect(buzz.execute({ code: "ABCDEF", playerId: "ghost" })).rejects.toThrow(
       PlayerNotInRoomError,
+    );
+  });
+
+  it("propagates BuzzTooEarlyError when buzz arrives within the grace period", async () => {
+    const repo = new FakeRoomRepository();
+    const channel = new FakeRealtimeChannel();
+    const clock = new FakeClock(1_000_000);
+    const codeGenerator = new FakeCodeGenerator(["ABCDEF"]);
+    await new CreateRoom({ repo, channel, clock, codeGenerator }).execute({
+      hostId: "host-1",
+      playlist: makePlaylist(),
+    });
+    await new JoinRoom({ repo, channel }).execute({
+      code: "ABCDEF",
+      playerId: "p1",
+      nickname: "Alice",
+    });
+    await new StartGame({ repo, channel, clock }).execute({ code: "ABCDEF", hostId: "host-1" });
+    clock.advance(100); // still within the 500 ms grace period
+    const buzz = new Buzz({ repo, channel, clock });
+    await expect(buzz.execute({ code: "ABCDEF", playerId: "p1" })).rejects.toThrow(
+      BuzzTooEarlyError,
     );
   });
 });

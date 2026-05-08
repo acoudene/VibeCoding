@@ -40,10 +40,10 @@ beforeEach(() => {
     channel: channel as unknown as Container["channel"],
     createRoom: new CreateRoom({ repo, channel, clock, codeGenerator }),
     joinRoom: new JoinRoom({ repo, channel }),
-    startGame: new StartGame({ repo, channel }),
-    playTrack: new PlayTrack({ repo, channel }),
+    startGame: new StartGame({ repo, channel, clock }),
+    playTrack: new PlayTrack({ repo, channel, clock }),
     buzz: new Buzz({ repo, channel, clock }),
-    validateAnswer: new ValidateAnswer({ repo, channel }),
+    validateAnswer: new ValidateAnswer({ repo, channel, clock }),
     leaveRoom: new LeaveRoom({ repo, channel }),
   };
   restore = setContainerForTests(container);
@@ -215,6 +215,8 @@ describe("POST /api/rooms/[code]/buzz", () => {
       jsonReq("http://test/api/rooms/ABCDEF/start", { hostId: "host-1" }),
       params("ABCDEF"),
     );
+    // Clear the buzz grace period so subsequent buzz requests are accepted.
+    clock.advance(600);
   };
 
   it("buzzes successfully", async () => {
@@ -237,6 +239,31 @@ describe("POST /api/rooms/[code]/buzz", () => {
     );
     expect(res.status).toBe(409);
   });
+
+  it("returns 409 BuzzTooEarlyError when buzz arrives within the grace period", async () => {
+    // Custom seed that skips the clock advance done by seedAndStart().
+    const { POST: createPOST } = await import("@/app/api/rooms/route");
+    await createPOST(jsonReq("http://test/api/rooms", { hostId: "host-1", playlist: PLAYLIST }));
+    const { POST: joinPOST } = await import("@/app/api/rooms/[code]/join/route");
+    await joinPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/join", { playerId: "p1", nickname: "Alice" }),
+      params("ABCDEF"),
+    );
+    const { POST: startPOST } = await import("@/app/api/rooms/[code]/start/route");
+    await startPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/start", { hostId: "host-1" }),
+      params("ABCDEF"),
+    );
+    // No clock advance here -> buzz is within the grace period.
+    const { POST: buzzPOST } = await import("@/app/api/rooms/[code]/buzz/route");
+    const res = await buzzPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/buzz", { playerId: "p1" }),
+      params("ABCDEF"),
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe("BuzzTooEarlyError");
+  });
 });
 
 describe("POST /api/rooms/[code]/validate", () => {
@@ -253,6 +280,7 @@ describe("POST /api/rooms/[code]/validate", () => {
       jsonReq("http://test/api/rooms/ABCDEF/start", { hostId: "host-1" }),
       params("ABCDEF"),
     );
+    clock.advance(600); // clear buzz grace period
     const { POST: buzzPOST } = await import("@/app/api/rooms/[code]/buzz/route");
     await buzzPOST(
       jsonReq("http://test/api/rooms/ABCDEF/buzz", { playerId: "p1" }),

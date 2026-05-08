@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { InvalidRoundTransitionError, PlayerAlreadyBlockedError, Round } from "./round";
+import {
+  BUZZ_GRACE_MS,
+  BuzzTooEarlyError,
+  InvalidRoundTransitionError,
+  PlayerAlreadyBlockedError,
+  Round,
+} from "./round";
 
 describe("Round.start", () => {
   it("returns a fresh playing round at the given track index", () => {
@@ -10,6 +16,42 @@ describe("Round.start", () => {
     expect(round.currentBuzzer).toBeUndefined();
     expect(round.outcome).toBeUndefined();
     expect(round.blockedPlayerIds.size).toBe(0);
+  });
+
+  it("stores the startedAt timestamp passed by the caller", () => {
+    expect(Round.start(2, 1_700_000_000_000).startedAt).toBe(1_700_000_000_000);
+  });
+});
+
+describe("Round.restart", () => {
+  it("preserves the trackIndex and blocked players, but resets startedAt and status", () => {
+    const blocked = Round.start(3, 1000).markBuzzed("p1", 1500).block();
+    const restarted = Round.restart(blocked, 5000);
+    expect(restarted.trackIndex).toBe(3);
+    expect(restarted.status).toBe("playing");
+    expect(restarted.startedAt).toBe(5000);
+    expect(restarted.blockedPlayerIds.has("p1")).toBe(true);
+    expect(restarted.currentBuzzer).toBeUndefined();
+  });
+});
+
+describe("Round.markBuzzed (R9 grace period)", () => {
+  it("rejects a buzz received during the first 500 ms", () => {
+    const r = Round.start(0, 1000);
+    expect(() => r.markBuzzed("p1", 1000 + BUZZ_GRACE_MS - 1)).toThrow(BuzzTooEarlyError);
+    expect(() => r.markBuzzed("p1", 1000 + 200)).toThrow(BuzzTooEarlyError);
+    expect(() => r.markBuzzed("p1", 1000)).toThrow(BuzzTooEarlyError);
+  });
+
+  it("accepts a buzz exactly at the grace boundary", () => {
+    const r = Round.start(0, 1000).markBuzzed("p1", 1000 + BUZZ_GRACE_MS);
+    expect(r.status).toBe("buzzed");
+    expect(r.currentBuzzer).toBe("p1");
+  });
+
+  it("does not enforce the grace period when no timestamp is provided", () => {
+    const r = Round.start(0, 1000).markBuzzed("p1");
+    expect(r.status).toBe("buzzed");
   });
 });
 

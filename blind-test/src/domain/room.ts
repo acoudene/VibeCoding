@@ -1,9 +1,9 @@
 import { Player, type PlayerId } from "./player";
 import type { Playlist } from "./playlist";
 import { RoomCode } from "./room-code";
-import { Round, type RoundOutcome, type RoundStatus } from "./round";
+import { BuzzTooEarlyError, Round, type RoundOutcome, type RoundStatus } from "./round";
 
-export { Round, type RoundOutcome, type RoundStatus };
+export { BuzzTooEarlyError, Round, type RoundOutcome, type RoundStatus };
 
 export class RoomNotJoinableError extends Error {
   constructor(status: RoomStatus) {
@@ -195,10 +195,11 @@ export class Room {
     return this.cloneWith({ players: next });
   }
 
-  start(): Room {
+  start(clock?: Clock): Room {
     if (this.status !== "lobby") throw new RoomNotStartableError(this.status);
     if (this.players.length === 0) throw new CannotStartEmptyRoomError();
-    return this.cloneWith({ status: "playing", rounds: [Round.start(0)] });
+    const startedAt = clock?.now() ?? 0;
+    return this.cloneWith({ status: "playing", rounds: [Round.start(0, startedAt)] });
   }
 
   buzz(props: { playerId: PlayerId; at: number }): Room {
@@ -251,7 +252,16 @@ export class Room {
     return this.cloneWith({ rounds: [...this.rounds.slice(0, -1), next] });
   }
 
-  playNextTrack(): Room {
+  markCurrentRoundStarted(at: number): Room {
+    if (this.status !== "playing") throw new GameNotInProgressError(this.status);
+    const current = this.rounds[this.rounds.length - 1];
+    if (!current) throw new GameNotInProgressError(this.status);
+    if (current.status !== "playing") throw new RoundNotPlayingError(current.status);
+    const refreshed = Round.restart(current, at);
+    return this.cloneWith({ rounds: [...this.rounds.slice(0, -1), refreshed] });
+  }
+
+  playNextTrack(clock?: Clock): Room {
     if (this.status === "finished") throw new NoMoreTracksError();
     if (this.status !== "playing") throw new GameNotInProgressError(this.status);
     const current = this.rounds[this.rounds.length - 1];
@@ -260,7 +270,8 @@ export class Room {
     if (nextIndex >= this.playlist.length) {
       return this.cloneWith({ status: "finished" });
     }
-    return this.cloneWith({ rounds: [...this.rounds, Round.start(nextIndex)] });
+    const startedAt = clock?.now() ?? 0;
+    return this.cloneWith({ rounds: [...this.rounds, Round.start(nextIndex, startedAt)] });
   }
 
   leaderboard(): ReadonlyArray<{ playerId: PlayerId; nickname: string; score: number }> {
