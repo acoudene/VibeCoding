@@ -59,7 +59,13 @@ L'architecture suit une **hexagonale stricte** : `domain` ne dépend de rien, `a
 
 Cible v1 : **Vercel** (front + API routes Next.js) avec **Pusher Channels** managé pour le temps réel.
 
-Variables d'environnement à configurer côté hébergeur :
+### 1. Compte Pusher
+
+1. Créer une app sur https://dashboard.pusher.com/ (Channels → Create app).
+2. Choisir un cluster proche (ex : `eu`).
+3. Récupérer les 4 valeurs depuis l'onglet "App Keys" : `app_id`, `key`, `secret`, `cluster`.
+
+### 2. Variables d'environnement
 
 | Côté serveur (privées) | Côté client (`NEXT_PUBLIC_*`) |
 | ---------------------- | ----------------------------- |
@@ -68,4 +74,29 @@ Variables d'environnement à configurer côté hébergeur :
 | `PUSHER_SECRET`        |                               |
 | `PUSHER_CLUSTER`       |                               |
 
-En CI, le job E2E utilise un service container [soketi](https://github.com/soketi/soketi) (Pusher-compatible self-hosted) au lieu d'un compte Pusher.
+Pour un test local avec un Pusher self-host (soketi via Docker), il existe aussi `PUSHER_HOST` / `PUSHER_PORT` / `PUSHER_USE_TLS=false` (et leurs équivalents `NEXT_PUBLIC_*`).
+
+### 3. Vercel
+
+```bash
+pnpm dlx vercel link        # premier déploiement
+pnpm dlx vercel              # déploie une preview
+pnpm dlx vercel --prod       # déploie en prod
+```
+
+Renseigner les 6 variables ci-dessus dans **Vercel → Settings → Environment Variables** (Production + Preview).
+
+### 4. Smoke test prod
+
+À faire manuellement après le premier déploiement :
+
+1. Créer une salle depuis l'URL `*.vercel.app`.
+2. Rejoindre depuis un 2ème onglet/device avec le code généré.
+3. Démarrer la partie, jouer 1 morceau, valider.
+4. Vérifier l'écran de fin.
+
+En cas d'erreur d'authentification Pusher, vérifier `/api/rooms/[code]/pusher-auth` et la console réseau du navigateur.
+
+### CI
+
+En CI, le job E2E utilise un service container [soketi](https://github.com/soketi/soketi) (Pusher-compatible self-hosted) au lieu d'un compte Pusher. Les specs tagguées avec `test.skip(!HAS_PUSHER, …)` sont automatiquement sautées si les vars ne sont pas définies, ce qui rend `pnpm test:e2e` exécutable en local sans Pusher.
