@@ -28,11 +28,18 @@ export class JoinRoom {
     const code = RoomCode.normalize(input.code);
     const room = await this.deps.repo.find(code);
     if (room === null) throw new RoomNotFoundError(code);
-    const updated = room.join({ playerId: input.playerId, nickname: input.nickname });
+    const isReconnect = room.players.some((p) => p.id === input.playerId);
+    const updated = isReconnect
+      ? room.reconnect({ playerId: input.playerId, nickname: input.nickname })
+      : room.join({ playerId: input.playerId, nickname: input.nickname });
     await this.deps.repo.save(updated);
-    await this.deps.channel.publish(`room-${code}`, "player:joined", {
-      playerId: input.playerId,
-      nickname: input.nickname,
-    });
+    await this.deps.channel.publish(
+      `room-${code}`,
+      isReconnect ? "player:reconnected" : "player:joined",
+      {
+        playerId: input.playerId,
+        nickname: input.nickname,
+      },
+    );
   }
 }
