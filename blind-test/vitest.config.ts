@@ -28,7 +28,12 @@ export default defineConfig({
         },
       },
       {
-        resolve: { tsconfigPaths: true },
+        resolve: {
+          tsconfigPaths: true,
+          alias: {
+            "server-only": new URL("./tests/setup/server-only-stub.ts", import.meta.url).pathname,
+          },
+        },
         test: {
           name: "integration",
           environment: "node",

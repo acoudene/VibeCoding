@@ -51,3 +51,16 @@ export function getContainer(): Container {
   }
   return g[GLOBAL_KEY]!;
 }
+
+/**
+ * Test-only: replace the global container. Returns a restore function
+ * that puts the previous container (or undefined) back in place.
+ */
+export function setContainerForTests(c: Container): () => void {
+  const g = globalThis as unknown as { [k: symbol]: Container | undefined };
+  const previous = g[GLOBAL_KEY];
+  g[GLOBAL_KEY] = c;
+  return () => {
+    g[GLOBAL_KEY] = previous;
+  };
+}
