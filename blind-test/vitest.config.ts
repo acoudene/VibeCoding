@@ -1,6 +1,9 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    tsconfigPaths: true,
+  },
   test: {
     coverage: {
       provider: "v8",
@@ -16,6 +19,7 @@ export default defineConfig({
     },
     projects: [
       {
+        resolve: { tsconfigPaths: true },
         test: {
           name: "unit",
           environment: "jsdom",
@@ -24,6 +28,7 @@ export default defineConfig({
         },
       },
       {
+        resolve: { tsconfigPaths: true },
         test: {
           name: "integration",
           environment: "node",
@@ -31,6 +36,7 @@ export default defineConfig({
         },
       },
       {
+        resolve: { tsconfigPaths: true },
         test: {
           name: "arch",
           environment: "node",
@@ -38,10 +44,5 @@ export default defineConfig({
         },
       },
     ],
-  },
-  resolve: {
-    alias: {
-      "@": new URL("./src", import.meta.url).pathname,
-    },
   },
 });
