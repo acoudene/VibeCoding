@@ -16,7 +16,7 @@ describe("AnswerMatcher", () => {
 
     it("removes punctuation and non-alphanumerics, keeping spaces", () => {
       expect(normalize("Daft Punk!")).toBe("daft punk");
-      expect(normalize("AC/DC")).toBe("acdc");
+      expect(normalize("AC/DC")).toBe("ac dc");
       expect(normalize("Guns N' Roses")).toBe("guns n roses");
     });
 
