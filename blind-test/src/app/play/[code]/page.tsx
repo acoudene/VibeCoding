@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { RoomCode } from "@/domain/room-code";
-import { subscribeChannel } from "@/infrastructure/realtime/pusher-client";
+import { subscribeChannel, subscribePresence } from "@/infrastructure/realtime/pusher-client";
 
 import { getSession, newPlayerId, setSession } from "../_lib/session";
 
@@ -53,6 +53,11 @@ export default function PlayerRoomPage() {
   // Realtime subscription (after join succeeds).
   useEffect(() => {
     if (!me) return;
+    const presence = subscribePresence({
+      code,
+      playerId: me.playerId,
+      nickname: me.nickname,
+    });
     const channel = subscribeChannel(`room-${code}`);
     channel.bind("game:started", () => {
       setState((s) => ({ ...s, status: "playing" }));
@@ -87,6 +92,9 @@ export default function PlayerRoomPage() {
     channel.bind("game:finished", (payload: { leaderboard: ScoreEntry[] }) => {
       setState((s) => ({ ...s, status: "finished", scores: payload.leaderboard }));
     });
+    return () => {
+      presence.unsubscribe();
+    };
   }, [me, code]);
 
   const join = async (e: React.FormEvent) => {

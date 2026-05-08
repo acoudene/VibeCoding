@@ -65,11 +65,15 @@ export default function HostRoomPage() {
 
   // Subscribe to presence (members count) and event channels.
   useEffect(() => {
-    const presence = subscribePresence(`presence-room-${code}`, {
-      onSubscriptionSucceeded: setMembers,
-      onMemberAdded: (m) => setMembers((prev) => [...prev, m]),
-      onMemberRemoved: (m) => setMembers((prev) => prev.filter((x) => x.id !== m.id)),
-    });
+    const presence = subscribePresence(
+      { code, playerId: hostId, nickname: "Host" },
+      {
+        onSubscriptionSucceeded: (list) => setMembers(list.filter((m) => m.id !== hostId)),
+        onMemberAdded: (m) =>
+          setMembers((prev) => (m.id === hostId ? prev : [...prev, m])),
+        onMemberRemoved: (m) => setMembers((prev) => prev.filter((x) => x.id !== m.id)),
+      },
+    );
     const channel = subscribeChannel(`room-${code}`);
     channel.bind("buzz:taken", (payload: { playerId: string; nickname: string }) => {
       setState((s) => ({ ...s, currentBuzzer: payload }));
@@ -94,7 +98,7 @@ export default function HostRoomPage() {
       const client = (window as unknown as { Pusher?: unknown }).Pusher;
       void client; // no-op; the singleton manages teardown on next reload
     };
-  }, [code]);
+  }, [code, hostId]);
 
   const callApi = async (path: string, body: Record<string, unknown>) => {
     setError(null);
