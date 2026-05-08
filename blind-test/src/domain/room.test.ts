@@ -641,3 +641,185 @@ describe("Room.leaderboard", () => {
     expect(board[0]?.score).toBe(2);
   });
 });
+
+describe("Room.setMode (R12)", () => {
+  const lobbyRoom = (...players: string[]) => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    for (const id of players) room = room.join({ playerId: id, nickname: id });
+    return room;
+  };
+
+  it("defaults to buzz mode", () => {
+    expect(lobbyRoom().mode).toBe("buzz");
+  });
+
+  it("accepts switching to input while in lobby", () => {
+    expect(lobbyRoom("p1").setMode("input").mode).toBe("input");
+  });
+
+  it("accepts switching back to buzz while in lobby", () => {
+    expect(lobbyRoom("p1").setMode("input").setMode("buzz").mode).toBe("buzz");
+  });
+
+  it("rejects mode change once playing (R12)", () => {
+    const playing = lobbyRoom("p1").start();
+    expect(() => playing.setMode("input")).toThrow(/mode/i);
+  });
+
+  it("rejects mode change once finished (R12)", () => {
+    let room = lobbyRoom("p1").start();
+    room = room.buzz({ playerId: "p1", at: 1000 }).validate("correct");
+    room = room.buzz({ playerId: "p1", at: 2000 }).validate("correct");
+    const finished = room.playNextTrack();
+    expect(finished.status).toBe("finished");
+    expect(() => finished.setMode("input")).toThrow(/mode/i);
+  });
+});
+
+describe("Room.submitAnswer (input mode, R10)", () => {
+  const inputRoom = (...players: string[]) => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    for (const id of players) room = room.join({ playerId: id, nickname: id });
+    return room.setMode("input").start();
+  };
+
+  it("records a player submission while the round is playing", () => {
+    const room = inputRoom("p1").submitAnswer({
+      playerId: "p1",
+      submission: { title: "t-1", artist: "a" },
+      at: 1000,
+    });
+    expect(room.rounds.at(-1)!.submissionOf("p1")?.title).toBe("t-1");
+  });
+
+  it("rejects submission in buzz mode", () => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    room = room.join({ playerId: "p1", nickname: "p1" }).start();
+    expect(() =>
+      room.submitAnswer({ playerId: "p1", submission: { title: "t-1" }, at: 1000 }),
+    ).toThrow(/mode/i);
+  });
+
+  it("rejects submission for a non-member player", () => {
+    const room = inputRoom("p1");
+    expect(() =>
+      room.submitAnswer({ playerId: "ghost", submission: { title: "t-1" }, at: 1000 }),
+    ).toThrow(PlayerNotInRoomError);
+  });
+
+  it("exposes whether all active players have submitted", () => {
+    let room = inputRoom("p1", "p2");
+    expect(room.allActivePlayersSubmitted()).toBe(false);
+    room = room.submitAnswer({ playerId: "p1", submission: { title: "t-1" }, at: 1000 });
+    expect(room.allActivePlayersSubmitted()).toBe(false);
+    room = room.submitAnswer({ playerId: "p2", submission: { title: "t-1" }, at: 1000 });
+    expect(room.allActivePlayersSubmitted()).toBe(true);
+  });
+});
+
+describe("Room.resolveInputRound (R11)", () => {
+  const inputRoom = (...players: string[]) => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    for (const id of players) room = room.join({ playerId: id, nickname: id });
+    return room.setMode("input").start();
+  };
+
+  it("attributes 1 pt for correct, 0.5 for half, 0 for wrong/missing (R11)", () => {
+    let room = inputRoom("p1", "p2", "p3");
+    room = room.submitAnswer({ playerId: "p1", submission: { title: "t-1", artist: "a" }, at: 1000 });
+    room = room.submitAnswer({ playerId: "p2", submission: { title: "t-1", artist: "z" }, at: 1000 });
+    const resolved = room.resolveInputRound();
+    const scores = Object.fromEntries(resolved.players.map((p) => [p.id, p.score]));
+    expect(scores.p1).toBe(1);
+    expect(scores.p2).toBe(0.5);
+    expect(scores.p3).toBe(0);
+    expect(resolved.rounds.at(-1)!.status).toBe("resolved");
+  });
+
+  it("rejects resolveInputRound in buzz mode", () => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    room = room.join({ playerId: "p1", nickname: "p1" }).start();
+    expect(() => room.resolveInputRound()).toThrow(/mode/i);
+  });
+
+  it("transitions to finished when last input round is resolved", () => {
+    let room = inputRoom("p1");
+    room = room.submitAnswer({ playerId: "p1", submission: { title: "t-1", artist: "a" }, at: 1000 });
+    room = room.resolveInputRound().playNextTrack();
+    room = room.submitAnswer({ playerId: "p1", submission: { title: "t-2", artist: "a" }, at: 2000 });
+    const finished = room.resolveInputRound().playNextTrack();
+    expect(finished.status).toBe("finished");
+  });
+});
+
+describe("Room.overrideOutcome", () => {
+  const resolvedInput = () => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    room = room.join({ playerId: "p1", nickname: "p1" }).setMode("input").start();
+    room = room.submitAnswer({
+      playerId: "p1",
+      submission: { title: "t-1", artist: "a" },
+      at: 1000,
+    });
+    return room.resolveInputRound();
+  };
+
+  it("adjusts a player's score by the delta between old and new outcome", () => {
+    const room = resolvedInput();
+    expect(room.players.find((p) => p.id === "p1")!.score).toBe(1);
+    const half = room.overrideOutcome({ playerId: "p1", outcome: "half" });
+    expect(half.players.find((p) => p.id === "p1")!.score).toBe(0.5);
+    const wrongd = half.overrideOutcome({ playerId: "p1", outcome: "wrong" });
+    expect(wrongd.players.find((p) => p.id === "p1")!.score).toBe(0);
+    const back = wrongd.overrideOutcome({ playerId: "p1", outcome: "correct" });
+    expect(back.players.find((p) => p.id === "p1")!.score).toBe(1);
+  });
+
+  it("rejects overrideOutcome on an unresolved round", () => {
+    let room = Room.create({
+      code: "ABCDEF",
+      hostId: "host-1",
+      playlist: makePlaylist(),
+      clock: fixedClock(),
+    });
+    room = room.join({ playerId: "p1", nickname: "p1" }).setMode("input").start();
+    expect(() => room.overrideOutcome({ playerId: "p1", outcome: "correct" })).toThrow();
+  });
+
+  it("rejects overrideOutcome for a non-member", () => {
+    const room = resolvedInput();
+    expect(() => room.overrideOutcome({ playerId: "ghost", outcome: "correct" })).toThrow(
+      PlayerNotInRoomError,
+    );
+  });
+});
