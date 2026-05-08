@@ -1,4 +1,4 @@
-import { matchAnswer, type ExpectedAnswer, type MatchOutcome } from "./answer-matcher";
+import { type ExpectedAnswer, matchAnswer, type MatchOutcome } from "./answer-matcher";
 import type { PlayerId } from "./player";
 
 export type RoundStatus = "playing" | "buzzed" | "resolved";

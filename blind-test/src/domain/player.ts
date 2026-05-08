@@ -69,6 +69,11 @@ export class Player {
     return new Player(this.id, this.nickname, this.score + amount, this.connected);
   }
 
+  setScore(score: number): Player {
+    assertValidScore(score);
+    return new Player(this.id, this.nickname, score, this.connected);
+  }
+
   setConnected(connected: boolean): Player {
     return new Player(this.id, this.nickname, this.score, connected);
   }

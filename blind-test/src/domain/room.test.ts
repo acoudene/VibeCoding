@@ -674,6 +674,7 @@ describe("Room.setMode (R12)", () => {
   it("rejects mode change once finished (R12)", () => {
     let room = lobbyRoom("p1").start();
     room = room.buzz({ playerId: "p1", at: 1000 }).validate("correct");
+    room = room.playNextTrack();
     room = room.buzz({ playerId: "p1", at: 2000 }).validate("correct");
     const finished = room.playNextTrack();
     expect(finished.status).toBe("finished");
@@ -747,7 +748,7 @@ describe("Room.resolveInputRound (R11)", () => {
   it("attributes 1 pt for correct, 0.5 for half, 0 for wrong/missing (R11)", () => {
     let room = inputRoom("p1", "p2", "p3");
     room = room.submitAnswer({ playerId: "p1", submission: { title: "t-1", artist: "a" }, at: 1000 });
-    room = room.submitAnswer({ playerId: "p2", submission: { title: "t-1", artist: "z" }, at: 1000 });
+    room = room.submitAnswer({ playerId: "p2", submission: { title: "t-1", artist: "wrongartist" }, at: 1000 });
     const resolved = room.resolveInputRound();
     const scores = Object.fromEntries(resolved.players.map((p) => [p.id, p.score]));
     expect(scores.p1).toBe(1);

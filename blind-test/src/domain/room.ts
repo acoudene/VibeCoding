@@ -1,9 +1,12 @@
+import type { ExpectedAnswer, MatchOutcome } from "./answer-matcher";
 import { Player, type PlayerId } from "./player";
 import type { Playlist } from "./playlist";
 import { RoomCode } from "./room-code";
 import { BuzzTooEarlyError, Round, type RoundOutcome, type RoundStatus } from "./round";
 
 export { BuzzTooEarlyError, Round, type RoundOutcome, type RoundStatus };
+
+export type RoomMode = "buzz" | "input";
 
 export class RoomNotJoinableError extends Error {
   constructor(status: RoomStatus) {
@@ -110,6 +113,20 @@ export class InvalidValidationError extends Error {
   }
 }
 
+export class InvalidModeChangeError extends Error {
+  constructor(status: RoomStatus) {
+    super(`Cannot change room mode while status is "${status}"`);
+    this.name = "InvalidModeChangeError";
+  }
+}
+
+export class WrongModeError extends Error {
+  constructor(expected: RoomMode, actual: RoomMode) {
+    super(`Operation requires room mode "${expected}", but room is in "${actual}"`);
+    this.name = "WrongModeError";
+  }
+}
+
 const MAX_PLAYERS = 8;
 
 export type RoomStatus = "lobby" | "playing" | "finished";
@@ -128,26 +145,32 @@ export class Room {
   readonly hostId: PlayerId;
   readonly playlist: Playlist;
   readonly status: RoomStatus;
+  readonly mode: RoomMode;
   readonly players: ReadonlyArray<Player>;
   readonly rounds: ReadonlyArray<Round>;
   readonly createdAt: number;
+  readonly resolvedOutcomes: ReadonlyArray<ReadonlyMap<PlayerId, MatchOutcome>>;
 
   private constructor(args: {
     code: string;
     hostId: PlayerId;
     playlist: Playlist;
     status: RoomStatus;
+    mode: RoomMode;
     players: ReadonlyArray<Player>;
     rounds: ReadonlyArray<Round>;
     createdAt: number;
+    resolvedOutcomes: ReadonlyArray<ReadonlyMap<PlayerId, MatchOutcome>>;
   }) {
     this.code = args.code;
     this.hostId = args.hostId;
     this.playlist = args.playlist;
     this.status = args.status;
+    this.mode = args.mode;
     this.players = args.players;
     this.rounds = args.rounds;
     this.createdAt = args.createdAt;
+    this.resolvedOutcomes = args.resolvedOutcomes;
   }
 
   static create(props: RoomCreateProps): Room {
@@ -157,9 +180,11 @@ export class Room {
       hostId: props.hostId,
       playlist: props.playlist,
       status: "lobby",
+      mode: "buzz",
       players: [],
       rounds: [],
       createdAt: props.clock.now(),
+      resolvedOutcomes: [],
     });
   }
 
@@ -283,18 +308,108 @@ export class Room {
       });
   }
 
+  setMode(mode: RoomMode): Room {
+    if (this.status !== "lobby") throw new InvalidModeChangeError(this.status);
+    return this.cloneWith({ mode });
+  }
+
+  submitAnswer(props: {
+    playerId: PlayerId;
+    submission: { title?: string; artist?: string };
+    at: number;
+  }): Room {
+    if (this.mode !== "input") throw new WrongModeError("input", this.mode);
+    if (this.status !== "playing") throw new GameNotInProgressError(this.status);
+    if (!this.players.some((p) => p.id === props.playerId)) {
+      throw new PlayerNotInRoomError(props.playerId);
+    }
+    const current = this.rounds[this.rounds.length - 1];
+    if (!current) throw new GameNotInProgressError(this.status);
+    if (current.status !== "playing") throw new RoundNotPlayingError(current.status);
+    const updated = current.submitAnswer(props.playerId, props.submission, props.at);
+    return this.cloneWith({ rounds: [...this.rounds.slice(0, -1), updated] });
+  }
+
+  allActivePlayersSubmitted(): boolean {
+    if (this.players.length === 0) return false;
+    const current = this.rounds[this.rounds.length - 1];
+    if (!current) return false;
+    return this.players.every((p) => current.submissionOf(p.id) !== undefined);
+  }
+
+  resolveInputRound(): Room {
+    if (this.mode !== "input") throw new WrongModeError("input", this.mode);
+    if (this.status !== "playing") throw new GameNotInProgressError(this.status);
+    const current = this.rounds[this.rounds.length - 1];
+    if (!current) throw new GameNotInProgressError(this.status);
+    if (current.status !== "playing") throw new RoundNotPlayingError(current.status);
+    const expected = this.expectedAnswerForRound(current);
+    const playerIds = this.players.map((p) => p.id);
+    const outcomes = current.resolveByInput(expected, playerIds);
+    const updatedPlayers = this.players.map((p) => {
+      const outcome = outcomes.get(p.id);
+      const points = pointsForOutcome(outcome);
+      return points > 0 ? p.addPoints(points) : p;
+    });
+    const resolved = current.markResolvedByInput();
+    return this.cloneWith({
+      players: updatedPlayers,
+      rounds: [...this.rounds.slice(0, -1), resolved],
+      resolvedOutcomes: [...this.resolvedOutcomes, outcomes],
+    });
+  }
+
+  overrideOutcome(props: { playerId: PlayerId; outcome: MatchOutcome }): Room {
+    if (this.mode !== "input") throw new WrongModeError("input", this.mode);
+    if (!this.players.some((p) => p.id === props.playerId)) {
+      throw new PlayerNotInRoomError(props.playerId);
+    }
+    const lastIndex = this.resolvedOutcomes.length - 1;
+    if (lastIndex < 0) throw new RoundNotResolvedError();
+    const lastRound = this.rounds[this.rounds.length - 1];
+    if (!lastRound || lastRound.status !== "resolved") throw new RoundNotResolvedError();
+    const lastOutcomes = this.resolvedOutcomes[lastIndex]!;
+    const previousOutcome = lastOutcomes.get(props.playerId) ?? "wrong";
+    if (previousOutcome === props.outcome) return this;
+    const delta = pointsForOutcome(props.outcome) - pointsForOutcome(previousOutcome);
+    const updatedPlayers = this.players.map((p) =>
+      p.id === props.playerId && delta !== 0 ? p.setScore(p.score + delta) : p,
+    );
+    const updatedOutcomes = new Map(lastOutcomes);
+    updatedOutcomes.set(props.playerId, props.outcome);
+    const updatedHistory = [...this.resolvedOutcomes];
+    updatedHistory[lastIndex] = updatedOutcomes;
+    return this.cloneWith({ players: updatedPlayers, resolvedOutcomes: updatedHistory });
+  }
+
+  private expectedAnswerForRound(round: Round): ExpectedAnswer {
+    const track = this.playlist.tracks[round.trackIndex];
+    if (!track) {
+      throw new GameNotInProgressError(this.status);
+    }
+    return { expectedTitle: track.expectedTitle, expectedArtist: track.expectedArtist };
+  }
+
   private cloneWith(patch: Partial<RoomInternalState>): Room {
     return new Room({
       code: this.code,
       hostId: this.hostId,
       playlist: this.playlist,
       status: this.status,
+      mode: this.mode,
       players: this.players,
       rounds: this.rounds,
       createdAt: this.createdAt,
+      resolvedOutcomes: this.resolvedOutcomes,
       ...patch,
     });
   }
+}
+
+function pointsForOutcome(outcome: MatchOutcome | undefined): number {
+  if (outcome === "correct") return 1;
+  if (outcome === "half") return 0.5;
+  return 0;
 }
 
 type RoomInternalState = {
@@ -302,7 +417,9 @@ type RoomInternalState = {
   hostId: PlayerId;
   playlist: Playlist;
   status: RoomStatus;
+  mode: RoomMode;
   players: ReadonlyArray<Player>;
   rounds: ReadonlyArray<Round>;
   createdAt: number;
+  resolvedOutcomes: ReadonlyArray<ReadonlyMap<PlayerId, MatchOutcome>>;
 };
