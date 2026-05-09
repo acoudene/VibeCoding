@@ -4,6 +4,14 @@ Application web pour animer des blind tests musicaux entre amis : un hôte crée
 
 Spécification fonctionnelle : [`spec.md`](./spec.md). Plan d'architecture : [`plan.md`](./plan.md). Découpage en sous-tâches : [`tasks.md`](./tasks.md).
 
+## v1.1 — Mode saisie + tchat
+
+- **Mode de réponse** : choisi par l'hôte avant de démarrer la partie.
+  - **Buzz** (par défaut) : les joueurs buzzent ; l'hôte arbitre vocalement.
+  - **Saisie** : les joueurs saisissent **titre + auteur** ; l'auto-validation tranche `correct` (1 pt) / `half` (0,5 pt) / `wrong` (0 pt) après normalisation et tolérance Levenshtein ≤ 2. L'hôte peut **overrider** le résultat de chaque joueur.
+- **Tchat de salle** : disponible en lobby et pendant la partie. Chaque participant voit l'historique en arrivant. L'hôte peut **fermer** le tchat (les joueurs ne peuvent plus écrire, l'hôte si).
+- **Anti-fuite** : en mode saisie, les autres joueurs voient uniquement `•••` jusqu'à la résolution du tour. Le contenu en clair des soumissions ne transite que par un canal Pusher privé `private-host-{code}` réservé à l'hôte.
+
 ## Prérequis
 
 - **Node.js ≥ 22**
