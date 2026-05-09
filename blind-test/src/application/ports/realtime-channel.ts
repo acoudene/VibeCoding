@@ -9,7 +9,13 @@ export type PresenceAuthResponse = {
   channel_data?: string;
 };
 
+export type PrivateAuthRequest = {
+  socketId: string;
+  channelName: string;
+};
+
 export type RealtimeChannel = {
   publish(channel: string, event: string, payload: unknown): Promise<void>;
   authorizePresence(req: PresenceAuthRequest): Promise<PresenceAuthResponse>;
+  authorizePrivate(req: PrivateAuthRequest): Promise<PresenceAuthResponse>;
 };

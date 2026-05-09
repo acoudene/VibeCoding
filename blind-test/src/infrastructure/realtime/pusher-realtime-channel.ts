@@ -3,6 +3,7 @@ import Pusher from "pusher";
 import type {
   PresenceAuthRequest,
   PresenceAuthResponse,
+  PrivateAuthRequest,
   RealtimeChannel,
 } from "@/application/ports/realtime-channel";
 
@@ -47,6 +48,11 @@ export class PusherRealtimeChannel implements RealtimeChannel {
       user_id: req.user.id,
       user_info: req.user.info as unknown as Record<string, unknown>,
     });
+    return { auth: auth.auth, channel_data: auth.channel_data };
+  }
+
+  async authorizePrivate(req: PrivateAuthRequest): Promise<PresenceAuthResponse> {
+    const auth = this.client.authorizeChannel(req.socketId, req.channelName);
     return { auth: auth.auth, channel_data: auth.channel_data };
   }
 }

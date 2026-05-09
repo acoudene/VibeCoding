@@ -1,6 +1,7 @@
 import type {
   PresenceAuthRequest,
   PresenceAuthResponse,
+  PrivateAuthRequest,
   RealtimeChannel,
 } from "@/application/ports/realtime-channel";
 
@@ -19,6 +20,10 @@ export class FakeRealtimeChannel implements RealtimeChannel {
 
   async authorizePresence(req: PresenceAuthRequest): Promise<PresenceAuthResponse> {
     return { auth: `fake-auth:${req.user.id}:${req.channelName}` };
+  }
+
+  async authorizePrivate(req: PrivateAuthRequest): Promise<PresenceAuthResponse> {
+    return { auth: `fake-private-auth:${req.channelName}` };
   }
 
   eventsOn(channel: string): PublishedEvent[] {

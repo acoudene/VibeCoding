@@ -5,11 +5,18 @@ import { Buzz } from "@/application/use-cases/buzz";
 import { CreateRoom } from "@/application/use-cases/create-room";
 import { JoinRoom } from "@/application/use-cases/join-room";
 import { LeaveRoom } from "@/application/use-cases/leave-room";
+import { OverrideAnswerOutcome } from "@/application/use-cases/override-answer-outcome";
 import { PlayTrack } from "@/application/use-cases/play-track";
+import { PostChatMessage } from "@/application/use-cases/post-chat-message";
+import { ResolveInputRound } from "@/application/use-cases/resolve-input-round";
+import { SetRoomMode } from "@/application/use-cases/set-room-mode";
 import { StartGame } from "@/application/use-cases/start-game";
+import { SubmitAnswer } from "@/application/use-cases/submit-answer";
+import { ToggleChat } from "@/application/use-cases/toggle-chat";
 import { ValidateAnswer } from "@/application/use-cases/validate-answer";
 
 import {
+  FakeChatRepository,
   FakeClock,
   FakeCodeGenerator,
   FakeRealtimeChannel,
@@ -28,16 +35,20 @@ const PLAYLIST = {
 
 let restore: () => void;
 let repo: FakeRoomRepository;
+let chats: FakeChatRepository;
 let channel: FakeRealtimeChannel;
 let clock: FakeClock;
 
 beforeEach(() => {
   repo = new FakeRoomRepository();
+  chats = new FakeChatRepository();
   channel = new FakeRealtimeChannel();
   clock = new FakeClock(1_000_000);
   const codeGenerator = new FakeCodeGenerator(["ABCDEF"]);
   const container: Container = {
     channel: channel as unknown as Container["channel"],
+    rooms: repo,
+    chats: chats as unknown as Container["chats"],
     createRoom: new CreateRoom({ repo, channel, clock, codeGenerator }),
     joinRoom: new JoinRoom({ repo, channel }),
     startGame: new StartGame({ repo, channel, clock }),
@@ -45,6 +56,12 @@ beforeEach(() => {
     buzz: new Buzz({ repo, channel, clock }),
     validateAnswer: new ValidateAnswer({ repo, channel, clock }),
     leaveRoom: new LeaveRoom({ repo, channel }),
+    setRoomMode: new SetRoomMode({ repo, channel }),
+    submitAnswer: new SubmitAnswer({ repo, channel, clock }),
+    resolveInputRound: new ResolveInputRound({ repo, channel, clock }),
+    overrideAnswerOutcome: new OverrideAnswerOutcome({ repo, channel }),
+    postChatMessage: new PostChatMessage({ rooms: repo, chats, channel, clock }),
+    toggleChat: new ToggleChat({ rooms: repo, chats, channel }),
   };
   restore = setContainerForTests(container);
 });
