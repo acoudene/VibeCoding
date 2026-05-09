@@ -11,21 +11,37 @@ import {
   subscribePresence,
 } from "@/infrastructure/realtime/pusher-client";
 
+import { ChatPanel } from "../../../_components/chat-panel";
+import { useChat } from "../../../_lib/use-chat";
 import { YoutubePlayer, type YoutubePlayerRef } from "../../_components/youtube-player";
 import { ensureHostId } from "../../_lib/client-id";
 import { useAudioBroadcaster } from "./_lib/use-audio-broadcaster";
 
 type RoundOutcome = "correct" | "wrong" | "half" | "skip";
+type InputOutcome = "correct" | "half" | "wrong";
+type RoomMode = "buzz" | "input";
 type RoomStatus = "lobby" | "playing" | "finished";
 
 type ScoreEntry = { playerId: string; nickname: string; score: number };
+type SubmissionEntry = {
+  playerId: string;
+  nickname: string;
+  title?: string;
+  artist?: string;
+  outcome?: InputOutcome;
+  hasTitle?: boolean;
+  hasArtist?: boolean;
+};
 
 type LocalState = {
   status: RoomStatus;
+  mode: RoomMode;
   trackIndex: number;
   currentBuzzer: { playerId: string; nickname: string } | null;
   scores: ScoreEntry[];
   leaderboard: ScoreEntry[];
+  submissions: Record<string, SubmissionEntry>;
+  resolved: boolean;
 };
 
 type StoredPlaylist = {
@@ -91,10 +107,13 @@ export default function HostRoomPage() {
   const [members, setMembers] = useState<PresenceMember[]>([]);
   const [state, setState] = useState<LocalState>({
     status: "lobby",
+    mode: "buzz",
     trackIndex: 0,
     currentBuzzer: null,
     scores: [],
     leaderboard: [],
+    submissions: {},
+    resolved: false,
   });
   const [playlist] = useState<StoredPlaylist | null>(() => {
     if (typeof window === "undefined") return null;
@@ -111,6 +130,7 @@ export default function HostRoomPage() {
   const playerRef = useRef<YoutubePlayerRef | null>(null);
 
   const audio = useAudioBroadcaster({ hostId, presenceChannel });
+  const chat = useChat({ code, authorId: hostId, isHost: true, channel: presenceChannel });
 
   // We can't reference `audio` from inside the presence callbacks (closure
   // would capture the first render's instance). Instead we react to `members`
@@ -130,7 +150,8 @@ export default function HostRoomPage() {
     // Lift the presence channel out of this effect so the audio broadcaster hook can attach to it.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPresenceChannel(presence.channel);
-    const channel = subscribeChannel(`room-${code}`);
+    const channel = subscribeChannel(`presence-room-${code}`);
+    const privateHost = subscribeChannel(`private-host-${code}`);
     channel.bind("buzz:taken", (payload: { playerId: string; nickname: string }) => {
       setState((s) => ({ ...s, currentBuzzer: payload }));
       playerRef.current?.pause();
@@ -139,7 +160,13 @@ export default function HostRoomPage() {
       setState((s) => ({ ...s, currentBuzzer: null, scores: payload.scores }));
     });
     channel.bind("track:ready", (payload: { trackIndex: number }) => {
-      setState((s) => ({ ...s, trackIndex: payload.trackIndex, currentBuzzer: null }));
+      setState((s) => ({
+        ...s,
+        trackIndex: payload.trackIndex,
+        currentBuzzer: null,
+        submissions: {},
+        resolved: false,
+      }));
     });
     channel.bind("game:finished", (payload: { leaderboard: ScoreEntry[] }) => {
       setState((s) => ({ ...s, status: "finished", leaderboard: payload.leaderboard }));
@@ -147,6 +174,74 @@ export default function HostRoomPage() {
     channel.bind("game:started", () => {
       setState((s) => ({ ...s, status: "playing" }));
     });
+    channel.bind("room:mode-changed", (payload: { mode: RoomMode }) => {
+      setState((s) => ({ ...s, mode: payload.mode }));
+    });
+    channel.bind(
+      "submission:received",
+      (payload: { playerId: string; nickname: string; hasTitle: boolean; hasArtist: boolean }) => {
+        setState((s) => ({
+          ...s,
+          submissions: {
+            ...s.submissions,
+            [payload.playerId]: {
+              ...(s.submissions[payload.playerId] ?? {}),
+              playerId: payload.playerId,
+              nickname: payload.nickname,
+              hasTitle: payload.hasTitle,
+              hasArtist: payload.hasArtist,
+            },
+          },
+        }));
+      },
+    );
+    privateHost.bind(
+      "submission:received:host",
+      (payload: { playerId: string; nickname: string; title?: string; artist?: string }) => {
+        setState((s) => ({
+          ...s,
+          submissions: {
+            ...s.submissions,
+            [payload.playerId]: {
+              ...(s.submissions[payload.playerId] ?? {}),
+              playerId: payload.playerId,
+              nickname: payload.nickname,
+              title: payload.title,
+              artist: payload.artist,
+            },
+          },
+        }));
+      },
+    );
+    channel.bind(
+      "round:resolved:input",
+      (payload: {
+        expectedTitle: string;
+        expectedArtist: string;
+        submissions: SubmissionEntry[];
+        scores: ScoreEntry[];
+      }) => {
+        const map: Record<string, SubmissionEntry> = {};
+        for (const s of payload.submissions) map[s.playerId] = s;
+        setState((s) => ({ ...s, resolved: true, submissions: map, scores: payload.scores }));
+      },
+    );
+    channel.bind(
+      "score:adjusted",
+      (payload: { playerId: string; outcome: InputOutcome; scores: ScoreEntry[] }) => {
+        setState((s) => ({
+          ...s,
+          submissions: {
+            ...s.submissions,
+            [payload.playerId]: {
+              ...(s.submissions[payload.playerId] ?? { playerId: payload.playerId, nickname: "" }),
+              outcome: payload.outcome,
+            },
+          },
+          scores: payload.scores,
+        }));
+      },
+    );
     return () => {
       presence.unsubscribe();
       setPresenceChannel(null);
@@ -199,6 +294,10 @@ export default function HostRoomPage() {
 
   const start = () => callApi("/start", { hostId });
   const validate = (outcome: RoundOutcome) => callApi("/validate", { hostId, outcome });
+  const setMode = (mode: RoomMode) => callApi("/set-mode", { hostId, mode });
+  const resolveInput = () => callApi("/resolve-input", { hostId });
+  const override = (playerId: string, outcome: InputOutcome) =>
+    callApi("/override-outcome", { hostId, playerId, outcome });
   const playTrack = () =>
     callApi("/play-track", { hostId, trackIndex: state.trackIndex }).then((ok) => {
       if (ok) playerRef.current?.play();
@@ -242,6 +341,31 @@ export default function HostRoomPage() {
 
         <AudioControls audio={audio} />
 
+        <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="text-sm font-semibold">Mode de réponse</div>
+          <div className="mt-2 inline-flex rounded-lg border border-zinc-300 dark:border-zinc-700">
+            <button
+              type="button"
+              onClick={() => void setMode("buzz")}
+              className={`px-3 py-1.5 text-sm ${state.mode === "buzz" ? "bg-blue-600 text-white" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
+            >
+              Buzz
+            </button>
+            <button
+              type="button"
+              onClick={() => void setMode("input")}
+              className={`px-3 py-1.5 text-sm ${state.mode === "input" ? "bg-blue-600 text-white" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
+            >
+              Saisie
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            {state.mode === "buzz"
+              ? "Les joueurs buzzent. Vous validez vocalement."
+              : "Les joueurs saisissent titre + auteur. Validation automatique avec override possible."}
+          </p>
+        </section>
+
         <button
           type="button"
           onClick={() => {
@@ -259,6 +383,8 @@ export default function HostRoomPage() {
           Démarrer la partie
         </button>
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+
+        <ChatPanel chat={chat} isHost className="mt-6" />
       </main>
     );
   }
@@ -297,9 +423,15 @@ export default function HostRoomPage() {
           <span>
             Track {state.trackIndex + 1}
             {playlist ? ` / ${playlist.tracks.length}` : ""}
+            {" · Mode : "}
+            <span className="font-semibold">{state.mode === "buzz" ? "Buzz" : "Saisie"}</span>
           </span>
           <span>
-            {state.currentBuzzer ? `${state.currentBuzzer.nickname} a buzzé` : "En attente"}
+            {state.mode === "buzz"
+              ? state.currentBuzzer
+                ? `${state.currentBuzzer.nickname} a buzzé`
+                : "En attente"
+              : `${Object.keys(state.submissions).length}/${members.length} ont répondu`}
           </span>
         </div>
 
@@ -349,43 +481,107 @@ export default function HostRoomPage() {
           </button>
         </div>
 
-        {state.currentBuzzer ? (
-          <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <button
-              type="button"
-              onClick={() => validate("correct")}
-              className="rounded-lg bg-green-600 py-3 font-medium text-white hover:bg-green-700"
-            >
-              Correct
-            </button>
-            <button
-              type="button"
-              onClick={() => validate("half")}
-              className="rounded-lg bg-yellow-500 py-3 font-medium text-white hover:bg-yellow-600"
-            >
-              Demi
-            </button>
-            <button
-              type="button"
-              onClick={() => validate("wrong")}
-              className="rounded-lg bg-red-600 py-3 font-medium text-white hover:bg-red-700"
-            >
-              Faux
-            </button>
-            <button
-              type="button"
-              onClick={() => validate("skip")}
-              className="rounded-lg border border-zinc-300 py-3 font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              Passer
-            </button>
-          </div>
+        {state.mode === "buzz" ? (
+          state.currentBuzzer ? (
+            <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <button
+                type="button"
+                onClick={() => validate("correct")}
+                className="rounded-lg bg-green-600 py-3 font-medium text-white hover:bg-green-700"
+              >
+                Correct
+              </button>
+              <button
+                type="button"
+                onClick={() => validate("half")}
+                className="rounded-lg bg-yellow-500 py-3 font-medium text-white hover:bg-yellow-600"
+              >
+                Demi
+              </button>
+              <button
+                type="button"
+                onClick={() => validate("wrong")}
+                className="rounded-lg bg-red-600 py-3 font-medium text-white hover:bg-red-700"
+              >
+                Faux
+              </button>
+              <button
+                type="button"
+                onClick={() => validate("skip")}
+                className="rounded-lg border border-zinc-300 py-3 font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                Passer
+              </button>
+            </div>
+          ) : (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => validate("skip")}
+                className="rounded-lg border border-zinc-300 px-4 py-2 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                Passer ce morceau
+              </button>
+            </div>
+          )
         ) : (
-          <div className="mt-6">
+          <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Soumissions</h3>
+              {!state.resolved ? (
+                <button
+                  type="button"
+                  onClick={() => void resolveInput()}
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Fin du tour
+                </button>
+              ) : null}
+            </div>
+            {members.length === 0 ? (
+              <p className="text-zinc-500">Aucun joueur connecté.</p>
+            ) : (
+              <ul className="space-y-2">
+                {members.map((m) => {
+                  const sub = state.submissions[m.id];
+                  return (
+                    <li
+                      key={m.id}
+                      className="flex flex-col gap-1 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <div className="font-medium">{m.info.nickname}</div>
+                        <div className="text-xs text-zinc-500">
+                          {sub
+                            ? sub.title || sub.artist
+                              ? `${sub.title ?? "—"} / ${sub.artist ?? "—"}`
+                              : "soumission reçue"
+                            : "en attente…"}
+                        </div>
+                      </div>
+                      {state.resolved && sub ? (
+                        <div className="inline-flex rounded-lg border border-zinc-300 dark:border-zinc-700">
+                          {(["correct", "half", "wrong"] as InputOutcome[]).map((o) => (
+                            <button
+                              key={o}
+                              type="button"
+                              onClick={() => void override(m.id, o)}
+                              className={`px-2 py-1 text-xs ${sub.outcome === o ? "bg-blue-600 text-white" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
+                            >
+                              {o === "correct" ? "1pt" : o === "half" ? "0.5" : "0"}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             <button
               type="button"
               onClick={() => validate("skip")}
-              className="rounded-lg border border-zinc-300 px-4 py-2 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              className="mt-3 rounded-lg border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
             >
               Passer ce morceau
             </button>
@@ -396,22 +592,25 @@ export default function HostRoomPage() {
         <AudioControls audio={audio} />
       </div>
 
-      <aside className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">Scores</h2>
-        <ul className="space-y-1">
-          {state.scores
-            .slice()
-            .sort((a, b) => b.score - a.score)
-            .map((s) => (
-              <li key={s.playerId} className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2">
-                  <AudioStateDot state={audio.playerStates.get(s.playerId)} />
-                  <span>{s.nickname}</span>
-                </span>
-                <span className="font-bold">{s.score}</span>
-              </li>
-            ))}
-        </ul>
+      <aside className="flex flex-col gap-4">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">Scores</h2>
+          <ul className="space-y-1">
+            {state.scores
+              .slice()
+              .sort((a, b) => b.score - a.score)
+              .map((s) => (
+                <li key={s.playerId} className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <AudioStateDot state={audio.playerStates.get(s.playerId)} />
+                    <span>{s.nickname}</span>
+                  </span>
+                  <span className="font-bold">{s.score}</span>
+                </li>
+              ))}
+          </ul>
+        </div>
+        <ChatPanel chat={chat} isHost />
       </aside>
     </main>
   );

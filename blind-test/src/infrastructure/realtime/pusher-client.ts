@@ -13,8 +13,9 @@ type Identity = { code: string; playerId: string; nickname: string };
 const identityByCode = new Map<string, Identity>();
 
 function getIdentityForChannel(channelName: string): Identity | null {
-  // presence-room-XXXX or room-XXXX (private would also end with the code)
-  const match = channelName.match(/-room-([A-Z0-9]+)$/);
+  // presence-room-XXXX, room-XXXX, or private-host-XXXX
+  const match =
+    channelName.match(/-room-([A-Z0-9]+)$/) ?? channelName.match(/-host-([A-Z0-9]+)$/);
   const code = match?.[1];
   if (!code) return null;
   return identityByCode.get(code) ?? null;
