@@ -19,12 +19,17 @@ const STATUS_BY_NAME: Record<string, number> = {
   InvalidValidationError: 400,
   CannotStartEmptyRoomError: 400,
   RoomCodeCollisionError: 500,
+  EmptySubmissionError: 400,
+  ChatEmptyError: 400,
+  ChatTooLongError: 400,
 
   // 403 - forbidden / not authorized
   HostCannotJoinError: 403,
   NotHostError: 403,
   PlayerBlockedError: 403,
   PlayerAlreadyBlockedError: 403,
+  ChatClosedError: 403,
+  WrongModeError: 403,
 
   // 404 - not found
   RoomNotFoundError: 404,
@@ -44,6 +49,11 @@ const STATUS_BY_NAME: Record<string, number> = {
   NoMoreTracksError: 409,
   InvalidRoundTransitionError: 409,
   TrackIndexMismatchError: 409,
+  AlreadySubmittedError: 409,
+  InvalidModeChangeError: 409,
+
+  // 429 - too many requests
+  ChatCooldownError: 429,
 };
 
 export function errorToResponse(err: unknown): NextResponse {

@@ -333,3 +333,218 @@ describe("POST /api/rooms/[code]/validate", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("POST /api/rooms/[code]/set-mode", () => {
+  const seed = async () => {
+    const { POST: createPOST } = await import("@/app/api/rooms/route");
+    await createPOST(jsonReq("http://test/api/rooms", { hostId: "host-1", playlist: PLAYLIST }));
+  };
+
+  it("changes mode to input in lobby", async () => {
+    await seed();
+    const { POST } = await import("@/app/api/rooms/[code]/set-mode/route");
+    const res = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/set-mode", { hostId: "host-1", mode: "input" }),
+      params("ABCDEF"),
+    );
+    expect(res.status).toBe(200);
+    expect((await repo.find("ABCDEF"))?.mode).toBe("input");
+  });
+
+  it("400 on invalid mode", async () => {
+    await seed();
+    const { POST } = await import("@/app/api/rooms/[code]/set-mode/route");
+    const res = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/set-mode", { hostId: "host-1", mode: "qcm" }),
+      params("ABCDEF"),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("403 when caller is not host", async () => {
+    await seed();
+    const { POST } = await import("@/app/api/rooms/[code]/set-mode/route");
+    const res = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/set-mode", { hostId: "p1", mode: "input" }),
+      params("ABCDEF"),
+    );
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("POST /api/rooms/[code]/submit-answer", () => {
+  const seedInput = async () => {
+    const { POST: createPOST } = await import("@/app/api/rooms/route");
+    await createPOST(jsonReq("http://test/api/rooms", { hostId: "host-1", playlist: PLAYLIST }));
+    const { POST: joinPOST } = await import("@/app/api/rooms/[code]/join/route");
+    await joinPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/join", { playerId: "p1", nickname: "Alice" }),
+      params("ABCDEF"),
+    );
+    const { POST: setModePOST } = await import("@/app/api/rooms/[code]/set-mode/route");
+    await setModePOST(
+      jsonReq("http://test/api/rooms/ABCDEF/set-mode", { hostId: "host-1", mode: "input" }),
+      params("ABCDEF"),
+    );
+    const { POST: startPOST } = await import("@/app/api/rooms/[code]/start/route");
+    await startPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/start", { hostId: "host-1" }),
+      params("ABCDEF"),
+    );
+  };
+
+  it("accepts a submission", async () => {
+    await seedInput();
+    const { POST } = await import("@/app/api/rooms/[code]/submit-answer/route");
+    const res = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/submit-answer", {
+        playerId: "p1",
+        title: "t1",
+      }),
+      params("ABCDEF"),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("409 on second submission (R10)", async () => {
+    await seedInput();
+    const { POST } = await import("@/app/api/rooms/[code]/submit-answer/route");
+    await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/submit-answer", {
+        playerId: "p1",
+        title: "first",
+      }),
+      params("ABCDEF"),
+    );
+    const second = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/submit-answer", {
+        playerId: "p1",
+        title: "second",
+      }),
+      params("ABCDEF"),
+    );
+    expect(second.status).toBe(409);
+  });
+
+  it("400 when both fields are missing", async () => {
+    await seedInput();
+    const { POST } = await import("@/app/api/rooms/[code]/submit-answer/route");
+    const res = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/submit-answer", {
+        playerId: "p1",
+        title: "",
+        artist: "",
+      }),
+      params("ABCDEF"),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("400 when a field exceeds 100 characters", async () => {
+    await seedInput();
+    const { POST } = await import("@/app/api/rooms/[code]/submit-answer/route");
+    const res = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/submit-answer", {
+        playerId: "p1",
+        title: "a".repeat(101),
+      }),
+      params("ABCDEF"),
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /api/rooms/[code]/chat", () => {
+  const seed = async () => {
+    const { POST: createPOST } = await import("@/app/api/rooms/route");
+    await createPOST(jsonReq("http://test/api/rooms", { hostId: "host-1", playlist: PLAYLIST }));
+    const { POST: joinPOST } = await import("@/app/api/rooms/[code]/join/route");
+    await joinPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/join", { playerId: "p1", nickname: "Alice" }),
+      params("ABCDEF"),
+    );
+  };
+
+  it("posts a message", async () => {
+    await seed();
+    const { POST } = await import("@/app/api/rooms/[code]/chat/route");
+    const res = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat", { authorId: "p1", text: "hello" }),
+      params("ABCDEF"),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("400 on empty / 400 on too long", async () => {
+    await seed();
+    const { POST } = await import("@/app/api/rooms/[code]/chat/route");
+    const empty = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat", { authorId: "p1", text: "  " }),
+      params("ABCDEF"),
+    );
+    expect(empty.status).toBe(400);
+    const longRes = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat", { authorId: "p1", text: "a".repeat(201) }),
+      params("ABCDEF"),
+    );
+    expect(longRes.status).toBe(400);
+  });
+
+  it("429 on cooldown", async () => {
+    await seed();
+    const { POST } = await import("@/app/api/rooms/[code]/chat/route");
+    await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat", { authorId: "p1", text: "first" }),
+      params("ABCDEF"),
+    );
+    clock.advance(100);
+    const second = await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat", { authorId: "p1", text: "second" }),
+      params("ABCDEF"),
+    );
+    expect(second.status).toBe(429);
+  });
+
+  it("GET returns messages history", async () => {
+    await seed();
+    const { POST, GET } = await import("@/app/api/rooms/[code]/chat/route");
+    await POST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat", { authorId: "p1", text: "hi" }),
+      params("ABCDEF"),
+    );
+    const res = await GET(new Request("http://test/api/rooms/ABCDEF/chat"), params("ABCDEF"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.messages).toHaveLength(1);
+    expect(body.isOpen).toBe(true);
+  });
+});
+
+describe("POST /api/rooms/[code]/chat-toggle", () => {
+  it("toggles + 403 when player is locked out", async () => {
+    const { POST: createPOST } = await import("@/app/api/rooms/route");
+    await createPOST(jsonReq("http://test/api/rooms", { hostId: "host-1", playlist: PLAYLIST }));
+    const { POST: joinPOST } = await import("@/app/api/rooms/[code]/join/route");
+    await joinPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/join", { playerId: "p1", nickname: "Alice" }),
+      params("ABCDEF"),
+    );
+    const { POST: togglePOST } = await import("@/app/api/rooms/[code]/chat-toggle/route");
+    const t1 = await togglePOST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat-toggle", { hostId: "host-1" }),
+      params("ABCDEF"),
+    );
+    expect(t1.status).toBe(200);
+    const { POST: chatPOST } = await import("@/app/api/rooms/[code]/chat/route");
+    const blocked = await chatPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat", { authorId: "p1", text: "hi" }),
+      params("ABCDEF"),
+    );
+    expect(blocked.status).toBe(403);
+    const hostPost = await chatPOST(
+      jsonReq("http://test/api/rooms/ABCDEF/chat", { authorId: "host-1", text: "annonce" }),
+      params("ABCDEF"),
+    );
+    expect(hostPost.status).toBe(200);
+  });
+});
