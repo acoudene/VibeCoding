@@ -62,7 +62,7 @@ describe("SubmitAnswer", () => {
       submission: { title: "One More Time", artist: "Daft Punk" },
     });
 
-    const publicEvents = channel.eventsOn("room-ABCDEF");
+    const publicEvents = channel.eventsOn("presence-room-ABCDEF");
     const privateEvents = channel.eventsOn("private-host-ABCDEF");
 
     const masked = publicEvents.find((e) => e.event === "submission:received");
@@ -88,11 +88,11 @@ describe("SubmitAnswer", () => {
   it("emits submissions:all-received when every player has submitted", async () => {
     const { submit, channel } = await setupInputRoom("p1", "p2");
     await submit.execute({ code: "ABCDEF", playerId: "p1", submission: { title: "x" } });
-    expect(channel.eventsOn("room-ABCDEF").some((e) => e.event === "submissions:all-received")).toBe(
+    expect(channel.eventsOn("presence-room-ABCDEF").some((e) => e.event === "submissions:all-received")).toBe(
       false,
     );
     await submit.execute({ code: "ABCDEF", playerId: "p2", submission: { title: "x" } });
-    expect(channel.eventsOn("room-ABCDEF").some((e) => e.event === "submissions:all-received")).toBe(
+    expect(channel.eventsOn("presence-room-ABCDEF").some((e) => e.event === "submissions:all-received")).toBe(
       true,
     );
   });

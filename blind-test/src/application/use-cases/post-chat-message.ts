@@ -2,6 +2,7 @@ import type { ChatRepository } from "@/application/ports/chat-repository";
 import type { Clock } from "@/application/ports/clock";
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import { Chat, type ChatRole } from "@/domain/chat";
 import type { PlayerId } from "@/domain/player";
 import { RoomCode } from "@/domain/room-code";
@@ -41,6 +42,6 @@ export class PostChatMessage {
     });
     await this.deps.chats.save(updated);
     const message = updated.messages[updated.messages.length - 1]!;
-    await this.deps.channel.publish(`room-${code}`, "chat:message", { message });
+    await this.deps.channel.publish(roomChannel(code), "chat:message", { message });
   }
 }

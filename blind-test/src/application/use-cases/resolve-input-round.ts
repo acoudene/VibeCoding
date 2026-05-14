@@ -1,6 +1,7 @@
 import type { Clock } from "@/application/ports/clock";
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { PlayerId } from "@/domain/player";
 import { RoomCode } from "@/domain/room-code";
 
@@ -49,7 +50,7 @@ export class ResolveInputRound {
       score: p.score,
     }));
 
-    await this.deps.channel.publish(`room-${code}`, "round:resolved:input", {
+    await this.deps.channel.publish(roomChannel(code), "round:resolved:input", {
       expectedTitle: expectedTrack.expectedTitle,
       expectedArtist: expectedTrack.expectedArtist,
       submissions: submissionsPayload,
@@ -65,13 +66,13 @@ export class ResolveInputRound {
     await this.deps.repo.save(next);
 
     if (next.status === "finished") {
-      await this.deps.channel.publish(`room-${code}`, "game:finished", {
+      await this.deps.channel.publish(roomChannel(code), "game:finished", {
         leaderboard: next.leaderboard(),
       });
     } else {
       const nextRound = next.rounds.at(-1);
       if (nextRound) {
-        await this.deps.channel.publish(`room-${code}`, "track:ready", {
+        await this.deps.channel.publish(roomChannel(code), "track:ready", {
           trackIndex: nextRound.trackIndex,
         });
       }

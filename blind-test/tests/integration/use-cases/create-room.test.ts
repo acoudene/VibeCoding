@@ -53,7 +53,7 @@ describe("CreateRoom", () => {
   it("publishes room:created on the room channel", async () => {
     const { useCase, channel } = makeUseCase();
     await useCase.execute({ hostId: "host-1", playlist: makePlaylist() });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events).toHaveLength(1);
     expect(events[0]?.event).toBe("room:created");
     expect(events[0]?.payload).toMatchObject({ code: "ABCDEF", hostId: "host-1" });

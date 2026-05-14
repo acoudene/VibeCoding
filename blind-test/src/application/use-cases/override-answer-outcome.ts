@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { MatchOutcome } from "@/domain/answer-matcher";
 import type { PlayerId } from "@/domain/player";
 import { RoomCode } from "@/domain/room-code";
@@ -34,7 +35,7 @@ export class OverrideAnswerOutcome {
       nickname: p.nickname,
       score: p.score,
     }));
-    await this.deps.channel.publish(`room-${code}`, "score:adjusted", {
+    await this.deps.channel.publish(roomChannel(code), "score:adjusted", {
       playerId: input.playerId,
       outcome: input.outcome,
       scores,

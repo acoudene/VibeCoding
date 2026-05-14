@@ -7,6 +7,7 @@ import { DuplicateNicknameError, HostCannotJoinError, RoomFullError } from "@/do
 import { Track } from "@/domain/track";
 
 import {
+  FakeChatRepository,
   FakeClock,
   FakeCodeGenerator,
   FakeRealtimeChannel,
@@ -28,8 +29,9 @@ const setup = async () => {
   const create = new CreateRoom({ repo, channel, clock, codeGenerator });
   await create.execute({ hostId: "host-1", playlist: makePlaylist() });
   channel.published.length = 0; // ignore room:created from setup
-  const join = new JoinRoom({ repo, channel });
-  return { join, repo, channel };
+  const chatRepo = new FakeChatRepository();
+  const join = new JoinRoom({ repo, chatRepo, channel });
+  return { join, repo, channel, chatRepo };
 };
 
 describe("JoinRoom", () => {
@@ -42,10 +44,18 @@ describe("JoinRoom", () => {
     expect(room?.players[0]?.nickname).toBe("Alice");
   });
 
+  it("returns the current room mode and an empty chat by default", async () => {
+    const { join } = await setup();
+    const out = await join.execute({ code: "ABCDEF", playerId: "p1", nickname: "Alice" });
+    expect(out.mode).toBe("buzz");
+    expect(out.chat.isOpen).toBe(true);
+    expect(out.chat.messages).toEqual([]);
+  });
+
   it("publishes player:joined on the room channel", async () => {
     const { join, channel } = await setup();
     await join.execute({ code: "ABCDEF", playerId: "p1", nickname: "Alice" });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events).toHaveLength(1);
     expect(events[0]?.event).toBe("player:joined");
     expect(events[0]?.payload).toMatchObject({ playerId: "p1", nickname: "Alice" });
@@ -105,6 +115,6 @@ describe("JoinRoom", () => {
     await expect(
       join.execute({ code: "ABCDEF", playerId: "host-1", nickname: "Host" }),
     ).rejects.toThrow(HostCannotJoinError);
-    expect(channel.eventsOn("room-ABCDEF")).toHaveLength(0);
+    expect(channel.eventsOn("presence-room-ABCDEF")).toHaveLength(0);
   });
 });

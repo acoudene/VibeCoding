@@ -73,7 +73,7 @@ describe("OverrideAnswerOutcome", () => {
     });
     const room = await repo.find("ABCDEF");
     expect(room?.players.find((p) => p.id === "p1")?.score).toBe(0.5);
-    const ev = channel.eventsOn("room-ABCDEF").find((e) => e.event === "score:adjusted");
+    const ev = channel.eventsOn("presence-room-ABCDEF").find((e) => e.event === "score:adjusted");
     expect(ev?.payload).toMatchObject({ playerId: "p1", outcome: "half" });
   });
 

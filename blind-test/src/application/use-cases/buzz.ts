@@ -1,6 +1,7 @@
 import type { Clock } from "@/application/ports/clock";
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { PlayerId } from "@/domain/player";
 import { RoomCode } from "@/domain/room-code";
 
@@ -27,7 +28,7 @@ export class Buzz {
     const updated = room.buzz({ playerId: input.playerId, at: this.deps.clock.now() });
     await this.deps.repo.save(updated);
     const buzzer = updated.players.find((p) => p.id === input.playerId);
-    await this.deps.channel.publish(`room-${code}`, "buzz:taken", {
+    await this.deps.channel.publish(roomChannel(code), "buzz:taken", {
       playerId: input.playerId,
       nickname: buzzer?.nickname ?? input.playerId,
     });

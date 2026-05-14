@@ -1,6 +1,7 @@
 import type { Clock } from "@/application/ports/clock";
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { PlayerId } from "@/domain/player";
 import { RoomCode } from "@/domain/room-code";
 
@@ -34,7 +35,7 @@ export class StartGame {
     if (room.hostId !== input.hostId) throw new NotHostError(room.hostId, input.hostId);
     const started = room.start(this.deps.clock);
     await this.deps.repo.save(started);
-    const channelName = `room-${code}`;
+    const channelName = roomChannel(code);
     await this.deps.channel.publish(channelName, "game:started", {});
     await this.deps.channel.publish(channelName, "track:ready", { trackIndex: 0 });
   }

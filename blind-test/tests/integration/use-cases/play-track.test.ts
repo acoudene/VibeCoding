@@ -48,7 +48,7 @@ describe("PlayTrack", () => {
     const { play, channel, clock } = await setup();
     clock.set(123_456);
     await play.execute({ code: "ABCDEF", hostId: "host-1", trackIndex: 0 });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events).toHaveLength(1);
     expect(events[0]?.event).toBe("track:started");
     expect(events[0]?.payload).toMatchObject({ trackIndex: 0, startedAt: 123_456 });
@@ -66,7 +66,7 @@ describe("PlayTrack", () => {
   it("normalizes the code", async () => {
     const { play, channel } = await setup();
     await play.execute({ code: "abcdef", hostId: "host-1", trackIndex: 0 });
-    expect(channel.eventsOn("room-ABCDEF")).toHaveLength(1);
+    expect(channel.eventsOn("presence-room-ABCDEF")).toHaveLength(1);
   });
 
   it("throws NotHostError when caller is not the host", async () => {

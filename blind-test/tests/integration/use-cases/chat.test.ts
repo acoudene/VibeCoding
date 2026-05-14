@@ -60,7 +60,7 @@ describe("PostChatMessage", () => {
   it("publishes chat:message and persists the message", async () => {
     const { post, channel, chats } = await setup();
     await post.execute({ code: "ABCDEF", authorId: "p1", text: "hello" });
-    const ev = channel.eventsOn("room-ABCDEF").find((e) => e.event === "chat:message");
+    const ev = channel.eventsOn("presence-room-ABCDEF").find((e) => e.event === "chat:message");
     expect(ev).toBeDefined();
     const persisted = await chats.find("ABCDEF");
     expect(persisted?.messages).toHaveLength(1);
@@ -103,8 +103,8 @@ describe("ToggleChat", () => {
     const { toggle, chats, channel } = await setup();
     await toggle.execute({ code: "ABCDEF", hostId: "host-1" });
     expect((await chats.find("ABCDEF"))?.isOpen).toBe(false);
-    expect(channel.lastEvent("room-ABCDEF")?.event).toBe("chat:toggled");
-    expect(channel.lastEvent("room-ABCDEF")?.payload).toEqual({ isOpen: false });
+    expect(channel.lastEvent("presence-room-ABCDEF")?.event).toBe("chat:toggled");
+    expect(channel.lastEvent("presence-room-ABCDEF")?.payload).toEqual({ isOpen: false });
     await toggle.execute({ code: "ABCDEF", hostId: "host-1" });
     expect((await chats.find("ABCDEF"))?.isOpen).toBe(true);
   });

@@ -15,12 +15,12 @@ export async function POST(
     if (!body?.playerId || !body?.nickname) {
       return NextResponse.json({ error: "missing fields" }, { status: 400 });
     }
-    await getContainer().joinRoom.execute({
+    const result = await getContainer().joinRoom.execute({
       code,
       playerId: body.playerId,
       nickname: body.nickname,
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, mode: result.mode, chat: result.chat });
   } catch (err) {
     return errorToResponse(err);
   }

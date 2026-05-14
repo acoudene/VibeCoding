@@ -60,7 +60,7 @@ describe("ResolveInputRound", () => {
     const { resolve, channel } = await setupAndSubmit();
     await resolve.execute({ code: "ABCDEF", hostId: "host-1" });
 
-    const ev = channel.eventsOn("room-ABCDEF").find((e) => e.event === "round:resolved:input");
+    const ev = channel.eventsOn("presence-room-ABCDEF").find((e) => e.event === "round:resolved:input");
     expect(ev).toBeDefined();
     const payload = ev!.payload as {
       expectedTitle: string;
@@ -82,7 +82,7 @@ describe("ResolveInputRound", () => {
   it("emits track:ready for the next round when not the last", async () => {
     const { resolve, channel } = await setupAndSubmit();
     await resolve.execute({ code: "ABCDEF", hostId: "host-1" });
-    expect(channel.eventsOn("room-ABCDEF").some((e) => e.event === "track:ready")).toBe(true);
+    expect(channel.eventsOn("presence-room-ABCDEF").some((e) => e.event === "track:ready")).toBe(true);
   });
 
   it("rejects non-host callers", async () => {

@@ -70,8 +70,11 @@ test.describe("Input mode: title + artist text submission", () => {
     });
     expect(resolve.ok()).toBe(true);
 
-    // Reveal section should show outcomes.
-    await expect(alice.getByText("Réponses du tour")).toBeVisible({ timeout: 10_000 });
-    await expect(alice.getByText(/Daft Punk/)).toBeVisible();
+    // Reveal section should show outcomes (the reveal card contains "Daft Punk"
+    // as Alice's submitted artist — scope the lookup to the card to avoid
+    // matching the header banner too).
+    const revealCard = alice.locator("section, div").filter({ hasText: "Réponses du tour" }).first();
+    await expect(revealCard).toBeVisible({ timeout: 10_000 });
+    await expect(revealCard.getByText(/Daft Punk/)).toBeVisible();
   });
 });

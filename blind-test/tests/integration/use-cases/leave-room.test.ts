@@ -50,7 +50,7 @@ describe("LeaveRoom", () => {
   it("publishes player:left with playerId and nickname", async () => {
     const { leave, channel } = await setup();
     await leave.execute({ code: "ABCDEF", playerId: "p1" });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events).toHaveLength(1);
     expect(events[0]?.event).toBe("player:left");
     expect(events[0]?.payload).toMatchObject({ playerId: "p1", nickname: "Alice" });
@@ -81,6 +81,6 @@ describe("LeaveRoom", () => {
     await expect(leave.execute({ code: "ABCDEF", playerId: "ghost" })).rejects.toThrow();
     const room = await repo.find("ABCDEF");
     expect(room?.players[0]?.connected).toBe(true);
-    expect(channel.eventsOn("room-ABCDEF")).toHaveLength(0);
+    expect(channel.eventsOn("presence-room-ABCDEF")).toHaveLength(0);
   });
 });

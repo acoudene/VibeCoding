@@ -73,7 +73,7 @@ describe("Buzz", () => {
   it("publishes buzz:taken with playerId and nickname", async () => {
     const { buzz, channel } = await setup();
     await buzz.execute({ code: "ABCDEF", playerId: "p1" });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events).toHaveLength(1);
     expect(events[0]?.event).toBe("buzz:taken");
     expect(events[0]?.payload).toMatchObject({ playerId: "p1", nickname: "Alice" });
@@ -82,7 +82,7 @@ describe("Buzz", () => {
   it("normalizes the code", async () => {
     const { buzz, channel } = await setup();
     await buzz.execute({ code: "abcdef", playerId: "p1" });
-    expect(channel.eventsOn("room-ABCDEF")).toHaveLength(1);
+    expect(channel.eventsOn("presence-room-ABCDEF")).toHaveLength(1);
   });
 
   it("throws RoomNotFoundError for an unknown code", async () => {

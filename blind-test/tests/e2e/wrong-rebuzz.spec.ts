@@ -28,10 +28,12 @@ test.describe("Wrong answer blocks player; another can re-buzz", () => {
     await a.goto(`/play/${code}`);
     await a.getByPlaceholder("Ton pseudo").fill("Alice");
     await a.getByRole("button", { name: "Rejoindre" }).click();
+    await expect(a.getByText("L'hôte va démarrer la partie…")).toBeVisible();
 
     await b.goto(`/play/${code}`);
     await b.getByPlaceholder("Ton pseudo").fill("Bob");
     await b.getByRole("button", { name: "Rejoindre" }).click();
+    await expect(b.getByText("L'hôte va démarrer la partie…")).toBeVisible();
 
     await request.post(`/api/rooms/${code}/start`, {
       data: { hostId: "host-e2e" },
@@ -40,18 +42,29 @@ test.describe("Wrong answer blocks player; another can re-buzz", () => {
     await expect(a.getByRole("button", { name: /^Buzz$/ })).toBeEnabled({ timeout: 10_000 });
     await a.getByRole("button", { name: /^Buzz$/ }).click();
 
-    await request.post(`/api/rooms/${code}/validate`, {
+    // Wait for the server's buzz:taken event to round-trip to both clients
+    // before the host validates (avoids racing the buzz POST).
+    await expect(a.getByText("Alice a buzzé")).toBeVisible({ timeout: 5_000 });
+    await expect(b.getByText("Alice a buzzé")).toBeVisible({ timeout: 5_000 });
+
+    const v1 = await request.post(`/api/rooms/${code}/validate`, {
       data: { hostId: "host-e2e", outcome: "wrong" },
     });
+    expect(v1.ok()).toBe(true);
 
     // Alice now blocked; her button shows the explanation text.
     await expect(a.getByText("Tu as répondu faux")).toBeVisible({ timeout: 5_000 });
 
     // Bob can still buzz.
+    await expect(b.getByRole("button", { name: /^Buzz$/ })).toBeEnabled({ timeout: 5_000 });
     await b.getByRole("button", { name: /^Buzz$/ }).click();
-    await request.post(`/api/rooms/${code}/validate`, {
+    await expect(a.getByText("Bob a buzzé")).toBeVisible({ timeout: 5_000 });
+    await expect(b.getByText("Bob a buzzé")).toBeVisible({ timeout: 5_000 });
+
+    const v2 = await request.post(`/api/rooms/${code}/validate`, {
       data: { hostId: "host-e2e", outcome: "correct" },
     });
+    expect(v2.ok()).toBe(true);
 
     await expect(b.getByText("Fin de la partie")).toBeVisible({ timeout: 10_000 });
 

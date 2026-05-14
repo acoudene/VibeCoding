@@ -1,6 +1,7 @@
 import type { Clock } from "@/application/ports/clock";
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { PlayerId } from "@/domain/player";
 import { RoomCode } from "@/domain/room-code";
 
@@ -42,7 +43,7 @@ export class SubmitAnswer {
     const hasTitle = trimmedTitle !== undefined && trimmedTitle.length > 0;
     const hasArtist = trimmedArtist !== undefined && trimmedArtist.length > 0;
 
-    await this.deps.channel.publish(`room-${code}`, "submission:received", {
+    await this.deps.channel.publish(roomChannel(code), "submission:received", {
       playerId: input.playerId,
       nickname,
       hasTitle,
@@ -59,7 +60,7 @@ export class SubmitAnswer {
     });
 
     if (updated.allActivePlayersSubmitted()) {
-      await this.deps.channel.publish(`room-${code}`, "submissions:all-received", {});
+      await this.deps.channel.publish(roomChannel(code), "submissions:all-received", {});
     }
   }
 }

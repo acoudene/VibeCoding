@@ -56,7 +56,7 @@ describe("StartGame", () => {
   it("publishes game:started followed by track:ready for index 0", async () => {
     const { start, channel } = await setup();
     await start.execute({ code: "ABCDEF", hostId: "host-1" });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events).toHaveLength(2);
     expect(events[0]?.event).toBe("game:started");
     expect(events[1]?.event).toBe("track:ready");
@@ -81,7 +81,7 @@ describe("StartGame", () => {
     await expect(start.execute({ code: "ABCDEF", hostId: "intruder" })).rejects.toThrow();
     const room = await repo.find("ABCDEF");
     expect(room?.status).toBe("lobby");
-    expect(channel.eventsOn("room-ABCDEF")).toHaveLength(0);
+    expect(channel.eventsOn("presence-room-ABCDEF")).toHaveLength(0);
   });
 
   it("throws RoomNotFoundError for an unknown code", async () => {

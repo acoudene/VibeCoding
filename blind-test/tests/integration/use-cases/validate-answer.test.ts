@@ -61,7 +61,7 @@ describe("ValidateAnswer", () => {
     await buzz.execute({ code: "ABCDEF", playerId: "p1" });
     channel.published.length = 0;
     await validate.execute({ code: "ABCDEF", hostId: "host-1", outcome: "correct" });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events.map((e) => e.event)).toEqual(["round:resolved", "track:ready"]);
     expect(events[0]?.payload).toMatchObject({ outcome: "correct" });
     expect(events[1]?.payload).toMatchObject({ trackIndex: 1 });
@@ -85,7 +85,7 @@ describe("ValidateAnswer", () => {
     const room = await repo.find("ABCDEF");
     expect(room?.players.every((p) => p.score === 0)).toBe(true);
     expect(room?.rounds).toHaveLength(2);
-    expect(channel.eventsOn("room-ABCDEF").map((e) => e.event)).toEqual([
+    expect(channel.eventsOn("presence-room-ABCDEF").map((e) => e.event)).toEqual([
       "round:resolved",
       "track:ready",
     ]);
@@ -96,7 +96,7 @@ describe("ValidateAnswer", () => {
     await buzz.execute({ code: "ABCDEF", playerId: "p1" });
     channel.published.length = 0;
     await validate.execute({ code: "ABCDEF", hostId: "host-1", outcome: "wrong" });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events.map((e) => e.event)).toEqual(["round:resolved"]);
     const room = await repo.find("ABCDEF");
     expect(room?.rounds.at(-1)?.status).toBe("playing");
@@ -108,7 +108,7 @@ describe("ValidateAnswer", () => {
     await buzz.execute({ code: "ABCDEF", playerId: "p1" });
     channel.published.length = 0;
     await validate.execute({ code: "ABCDEF", hostId: "host-1", outcome: "correct" });
-    const events = channel.eventsOn("room-ABCDEF");
+    const events = channel.eventsOn("presence-room-ABCDEF");
     expect(events.map((e) => e.event)).toEqual(["round:resolved", "game:finished"]);
     expect(events[1]?.payload).toMatchObject({ leaderboard: expect.any(Array) });
     const room = await repo.find("ABCDEF");
@@ -120,7 +120,7 @@ describe("ValidateAnswer", () => {
     await buzz.execute({ code: "ABCDEF", playerId: "p1" });
     channel.published.length = 0;
     await validate.execute({ code: "ABCDEF", hostId: "host-1", outcome: "correct" });
-    const resolved = channel.eventsOn("room-ABCDEF")[0];
+    const resolved = channel.eventsOn("presence-room-ABCDEF")[0];
     expect(resolved?.payload).toMatchObject({
       outcome: "correct",
       scores: expect.arrayContaining([expect.objectContaining({ playerId: "p1", score: 1 })]),

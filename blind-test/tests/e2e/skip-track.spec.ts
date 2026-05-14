@@ -25,6 +25,7 @@ test.describe("Host can skip a track", () => {
     await player.goto(`/play/${code}`);
     await player.getByPlaceholder("Ton pseudo").fill("Alice");
     await player.getByRole("button", { name: "Rejoindre" }).click();
+    await expect(player.getByText("L'hôte va démarrer la partie…")).toBeVisible();
 
     await request.post(`/api/rooms/${code}/start`, {
       data: { hostId: "host-e2e" },

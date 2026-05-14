@@ -50,7 +50,7 @@ beforeEach(() => {
     rooms: repo,
     chats: chats as unknown as Container["chats"],
     createRoom: new CreateRoom({ repo, channel, clock, codeGenerator }),
-    joinRoom: new JoinRoom({ repo, channel }),
+    joinRoom: new JoinRoom({ repo, chatRepo: chats, channel }),
     startGame: new StartGame({ repo, channel, clock }),
     playTrack: new PlayTrack({ repo, channel, clock }),
     buzz: new Buzz({ repo, channel, clock }),
@@ -204,7 +204,7 @@ describe("POST /api/rooms/[code]/play-track", () => {
       params("ABCDEF"),
     );
     expect(res.status).toBe(200);
-    expect(channel.eventsOn("room-ABCDEF").map((e) => e.event)).toContain("track:started");
+    expect(channel.eventsOn("presence-room-ABCDEF").map((e) => e.event)).toContain("track:started");
   });
 
   it("returns 409 on track index mismatch", async () => {

@@ -43,8 +43,12 @@ test.describe("Happy path: 1 host + 1 player", () => {
     // Player should see the buzz button.
     await expect(player.getByRole("button", { name: /Buzz/i })).toBeVisible({ timeout: 10_000 });
 
-    // Player buzzes and host validates correct.
-    await player.getByRole("button", { name: /Buzz/i }).click();
+    // Player buzzes track 1; wait for the server's buzz:taken event to round-trip
+    // (banner shows "Alice a buzzé") before the host validates — without this
+    // the validate POST can race the buzz POST and the round stays "playing".
+    await player.getByRole("button", { name: /^Buzz$/ }).click();
+    await expect(player.getByText("Alice a buzzé")).toBeVisible({ timeout: 5_000 });
+
     const validate1 = await request.post(`/api/rooms/${code}/validate`, {
       data: { hostId: "host-e2e", outcome: "correct" },
     });
@@ -52,7 +56,9 @@ test.describe("Happy path: 1 host + 1 player", () => {
 
     // After track:ready the player can buzz again on track 2.
     await expect(player.getByRole("button", { name: /^Buzz$/ })).toBeEnabled({ timeout: 10_000 });
-    await player.getByRole("button", { name: /Buzz/i }).click();
+    await player.getByRole("button", { name: /^Buzz$/ }).click();
+    await expect(player.getByText("Alice a buzzé")).toBeVisible({ timeout: 5_000 });
+
     const validate2 = await request.post(`/api/rooms/${code}/validate`, {
       data: { hostId: "host-e2e", outcome: "correct" },
     });

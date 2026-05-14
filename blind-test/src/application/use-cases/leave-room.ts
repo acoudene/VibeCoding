@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { PlayerId } from "@/domain/player";
 import { RoomCode } from "@/domain/room-code";
 
@@ -25,7 +26,7 @@ export class LeaveRoom {
     const player = room.players.find((p) => p.id === input.playerId);
     const updated = room.leave(input.playerId);
     await this.deps.repo.save(updated);
-    await this.deps.channel.publish(`room-${code}`, "player:left", {
+    await this.deps.channel.publish(roomChannel(code), "player:left", {
       playerId: input.playerId,
       nickname: player?.nickname ?? input.playerId,
     });

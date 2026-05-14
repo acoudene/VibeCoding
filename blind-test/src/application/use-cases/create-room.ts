@@ -2,6 +2,7 @@ import type { Clock } from "@/application/ports/clock";
 import type { CodeGenerator } from "@/application/ports/code-generator";
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { PlayerId } from "@/domain/player";
 import type { Playlist } from "@/domain/playlist";
 import { Room } from "@/domain/room";
@@ -43,7 +44,7 @@ export class CreateRoom {
       clock: this.deps.clock,
     });
     await this.deps.repo.save(room);
-    await this.deps.channel.publish(`room-${code}`, "room:created", {
+    await this.deps.channel.publish(roomChannel(code), "room:created", {
       code,
       hostId: input.hostId,
     });

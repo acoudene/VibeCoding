@@ -32,6 +32,7 @@ test.describe("Anti-leak: player view never exposes track metadata", () => {
     await player.goto(`/play/${code}`);
     await player.getByPlaceholder("Ton pseudo").fill("Bob");
     await player.getByRole("button", { name: "Rejoindre" }).click();
+    await expect(player.getByText("L'hôte va démarrer la partie…")).toBeVisible();
 
     const start = await request.post(`/api/rooms/${code}/start`, {
       data: { hostId: "host-leak" },

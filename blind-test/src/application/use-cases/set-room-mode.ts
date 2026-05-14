@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { PlayerId } from "@/domain/player";
 import type { RoomMode } from "@/domain/room";
 import { RoomCode } from "@/domain/room-code";
@@ -28,6 +29,6 @@ export class SetRoomMode {
     if (room.hostId !== input.hostId) throw new NotHostError(room.hostId, input.hostId);
     const updated = room.setMode(input.mode);
     await this.deps.repo.save(updated);
-    await this.deps.channel.publish(`room-${code}`, "room:mode-changed", { mode: input.mode });
+    await this.deps.channel.publish(roomChannel(code), "room:mode-changed", { mode: input.mode });
   }
 }

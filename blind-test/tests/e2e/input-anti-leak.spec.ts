@@ -36,12 +36,14 @@ test.describe("Input mode anti-leak: opponents' answers and expected stay hidden
     await alice.goto(`/play/${code}`);
     await alice.getByPlaceholder("Ton pseudo").fill("Alice");
     await alice.getByRole("button", { name: "Rejoindre" }).click();
+    await expect(alice.getByText("L'hôte va démarrer la partie…")).toBeVisible();
 
     const bobCtx = await browser.newContext();
     const bob = await bobCtx.newPage();
     await bob.goto(`/play/${code}`);
     await bob.getByPlaceholder("Ton pseudo").fill("Bob");
     await bob.getByRole("button", { name: "Rejoindre" }).click();
+    await expect(bob.getByText("L'hôte va démarrer la partie…")).toBeVisible();
 
     await request.post(`/api/rooms/${code}/start`, { data: { hostId: "host-leak" } });
 

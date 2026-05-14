@@ -54,7 +54,7 @@ function build(): Container {
     rooms: repo,
     chats,
     createRoom: new CreateRoom({ repo, channel, clock, codeGenerator }),
-    joinRoom: new JoinRoom({ repo, channel }),
+    joinRoom: new JoinRoom({ repo, chatRepo: chats, channel }),
     startGame: new StartGame({ repo, channel, clock }),
     playTrack: new PlayTrack({ repo, channel, clock }),
     buzz: new Buzz({ repo, channel, clock }),

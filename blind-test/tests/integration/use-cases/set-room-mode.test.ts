@@ -47,8 +47,8 @@ describe("SetRoomMode", () => {
     const { setMode, repo, channel } = await setup();
     await setMode.execute({ code: "ABCDEF", hostId: "host-1", mode: "input" });
     expect((await repo.find("ABCDEF"))?.mode).toBe("input");
-    expect(channel.lastEvent("room-ABCDEF")?.event).toBe("room:mode-changed");
-    expect(channel.lastEvent("room-ABCDEF")?.payload).toEqual({ mode: "input" });
+    expect(channel.lastEvent("presence-room-ABCDEF")?.event).toBe("room:mode-changed");
+    expect(channel.lastEvent("presence-room-ABCDEF")?.payload).toEqual({ mode: "input" });
   });
 
   it("rejects unknown rooms", async () => {

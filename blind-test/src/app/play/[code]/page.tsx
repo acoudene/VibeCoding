@@ -61,6 +61,7 @@ export default function PlayerRoomPage() {
   });
   const [presenceChannel, setPresenceChannel] = useState<PresenceChannel | null>(null);
   const [hostId, setHostId] = useState<string | null>(null);
+  const [presenceReady, setPresenceReady] = useState(false);
   const audio = useAudioReceiver({
     selfId: me?.playerId ?? "",
     hostId: hostId ?? "",
@@ -73,16 +74,25 @@ export default function PlayerRoomPage() {
     channel: me ? presenceChannel : null,
   });
 
-  // Auto-reconnect if session exists.
+  // Auto-reconnect if session exists; pick up the room mode from the server.
   useEffect(() => {
     if (!me) return;
     fetch(`/api/rooms/${code}/join`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ playerId: me.playerId, nickname: me.nickname }),
-    }).catch(() => {
-      /* noop — server may already know us; UI keeps playing anyway */
-    });
+    })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const body = (await res.json().catch(() => ({}))) as { mode?: RoomMode };
+        if (body.mode === "buzz" || body.mode === "input") {
+          const initialMode = body.mode;
+          setState((s) => ({ ...s, mode: initialMode }));
+        }
+      })
+      .catch(() => {
+        /* noop — server may already know us; UI keeps playing anyway */
+      });
   }, [me, code]);
 
   // Realtime subscription (after join succeeds).
@@ -98,6 +108,7 @@ export default function PlayerRoomPage() {
         onSubscriptionSucceeded: (members) => {
           const host = members.find((m) => m.info.nickname === "Host");
           if (host) setHostId(host.id);
+          setPresenceReady(true);
         },
         onMemberAdded: (m) => {
           if (m.info.nickname === "Host") setHostId(m.id);
@@ -115,6 +126,9 @@ export default function PlayerRoomPage() {
       setState((s) => ({ ...s, status: "playing" }));
     });
     channel.bind("track:ready", (payload: { trackIndex: number }) => {
+      // Keep `resolvedReveal` so players can still read the previous round's
+      // result while the next track is loading. It will be cleared as soon as
+      // a new submission flows in (or, in buzz mode, a new buzz happens).
       setState((s) => ({
         ...s,
         trackIndex: payload.trackIndex,
@@ -123,7 +137,6 @@ export default function PlayerRoomPage() {
         buzzedSelf: false,
         submitted: false,
         submittersMasked: [],
-        resolvedReveal: null,
       }));
     });
     channel.bind("buzz:taken", (payload: { playerId: string; nickname: string }) => {
@@ -154,6 +167,8 @@ export default function PlayerRoomPage() {
           if (s.submittersMasked.some((x) => x.playerId === payload.playerId)) return s;
           return {
             ...s,
+            // A new submission means the previous round's reveal is stale.
+            resolvedReveal: null,
             submittersMasked: [
               ...s.submittersMasked,
               { playerId: payload.playerId, nickname: payload.nickname },
@@ -205,6 +220,7 @@ export default function PlayerRoomPage() {
       presence.unsubscribe();
       setPresenceChannel(null);
       setHostId(null);
+      setPresenceReady(false);
     };
   }, [me, code]);
 
@@ -228,6 +244,11 @@ export default function PlayerRoomPage() {
       const data = (await res.json().catch(() => ({}))) as { message?: string };
       setError(data.message ?? `Erreur ${res.status}`);
       return;
+    }
+    const body = (await res.json().catch(() => ({}))) as { mode?: RoomMode };
+    if (body.mode === "buzz" || body.mode === "input") {
+      const initialMode = body.mode;
+      setState((s) => ({ ...s, mode: initialMode }));
     }
     const session = { playerId, nickname: nicknameInput.trim() };
     setSession(code, session);
@@ -313,11 +334,16 @@ export default function PlayerRoomPage() {
 
   if (state.status === "lobby") {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 py-12 text-center">
-        <h1 className="text-2xl font-bold">{me.nickname}</h1>
-        <p className="mt-2 text-zinc-500">Salle {code}</p>
-        <div className="mt-12 text-lg text-zinc-700 dark:text-zinc-300">
-          L&apos;hôte va démarrer la partie…
+      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 py-12">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">{me.nickname}</h1>
+          <p className="mt-2 text-zinc-500">Salle {code}</p>
+          <div className="mt-12 text-lg text-zinc-700 dark:text-zinc-300">
+            {presenceReady ? "L'hôte va démarrer la partie…" : "Connexion…"}
+          </div>
+        </div>
+        <div className="mt-8">
+          <ChatPanel chat={chat} isHost={false} />
         </div>
       </main>
     );
@@ -343,6 +369,39 @@ export default function PlayerRoomPage() {
             </li>
           ))}
         </ol>
+        {state.resolvedReveal ? (
+          <div className="mt-6 w-full rounded-xl border border-zinc-200 bg-white p-3 text-left text-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <h3 className="mb-2 font-semibold">Réponses du tour</h3>
+            <p className="mb-2 text-zinc-500">
+              Réponse : {state.resolvedReveal.expectedTitle} — {state.resolvedReveal.expectedArtist}
+            </p>
+            <ul className="space-y-1">
+              {state.resolvedReveal.submissions.map((sub) => (
+                <li key={sub.playerId} className="flex items-center justify-between">
+                  <span className="flex-1">
+                    <span className="font-medium">{sub.nickname}</span>
+                    <span className="ml-2 text-zinc-500">
+                      {sub.title || sub.artist
+                        ? `${sub.title ?? "—"} / ${sub.artist ?? "—"}`
+                        : "n'a pas répondu"}
+                    </span>
+                  </span>
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                      sub.outcome === "correct"
+                        ? "bg-green-100 text-green-800"
+                        : sub.outcome === "half"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {sub.outcome}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </main>
     );
   }

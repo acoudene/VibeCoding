@@ -1,6 +1,7 @@
 import type { Clock } from "@/application/ports/clock";
 import type { RealtimeChannel } from "@/application/ports/realtime-channel";
 import type { RoomRepository } from "@/application/ports/room-repository";
+import { roomChannel } from "@/application/room-channel";
 import type { PlayerId } from "@/domain/player";
 import { RoomCode } from "@/domain/room-code";
 import type { RoundOutcome } from "@/domain/round";
@@ -30,7 +31,7 @@ export class ValidateAnswer {
     if (room.hostId !== input.hostId) throw new NotHostError(room.hostId, input.hostId);
 
     const validated = room.validate(input.outcome);
-    const channelName = `room-${code}`;
+    const channelName = roomChannel(code);
 
     const scores = validated.players.map((p) => ({
       playerId: p.id,
