@@ -66,7 +66,14 @@
       "Bash(npm run *)",
       "Bash(Select-String -Path \"C:\\\\Users\\\\ACE\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Github-acoudene-VibeCoding-blind-test\\\\39027be7-8e6a-498c-b325-22be29a89a90\\\\tasks\\\\btsuy1g8h.output\" -Pattern \"Ready in|error|Error\" -Quiet)",
       "Bash(Start-Sleep -Seconds 1)",
-      "Bash(pnpm vitest *)"
+      "Bash(pnpm vitest *)",
+      "Bash(docker run *)",
+      "Bash(netstat -ano)",
+      "Bash(export PUSHER_APP_ID=app-id PUSHER_KEY=app-key PUSHER_SECRET=app-secret PUSHER_CLUSTER=mt1 PUSHER_HOST=127.0.0.1 PUSHER_PORT=6001 PUSHER_USE_TLS=false NEXT_PUBLIC_PUSHER_KEY=app-key NEXT_PUBLIC_PUSHER_CLUSTER=mt1 NEXT_PUBLIC_PUSHER_HOST=127.0.0.1 NEXT_PUBLIC_PUSHER_PORT=6001 NEXT_PUBLIC_PUSHER_USE_TLS=false)",
+      "Bash(docker stop *)",
+      "Bash(docker rm *)",
+      "PowerShell(pnpm test:e2e *)",
+      "PowerShell(pnpm exec *)"
     ]
   }
 }
