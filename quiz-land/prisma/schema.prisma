@@ -1,0 +1,123 @@
+// Quiz Land — Prisma schema (PostgreSQL / Neon)
+// Conçu pour être extensible : un seul mode (MULTIPLE_CHOICE) pour commencer,
+// mais le champ `mode` sur Question/Round prépare l'ajout de TRUE_FALSE, FREE_TEXT, etc.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum QuestionMode {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  FREE_TEXT
+}
+
+enum GameState {
+  LOBBY // les joueurs rejoignent
+  QUESTION // une question est en cours
+  REVEAL // la bonne réponse est révélée + classement intermédiaire
+  FINISHED // partie terminée
+}
+
+// Catégories de quiz : films/séries, culture geek, sport, histoire, etc.
+model Category {
+  id        String     @id @default(cuid())
+  slug      String     @unique
+  name      String
+  emoji     String?
+  questions Question[]
+  createdAt DateTime   @default(now())
+}
+
+model Question {
+  id            String       @id @default(cuid())
+  categoryId    String
+  category      Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  mode          QuestionMode @default(MULTIPLE_CHOICE)
+  text          String
+  // Pour le QCM : liste de propositions. Index de la bonne réponse dans `correctIndex`.
+  choices       String[]
+  correctIndex  Int?
+  // Pour FREE_TEXT/TRUE_FALSE plus tard : réponse texte canonique.
+  correctText   String?
+  difficulty    Int          @default(1) // 1=facile, 2=moyen, 3=difficile
+  explanation   String?
+  rounds        Round[]
+  createdAt     DateTime     @default(now())
+
+  @@index([categoryId])
+}
+
+// Une partie créée par un hôte ; les joueurs la rejoignent via `code`.
+model GameSession {
+  id            String    @id @default(cuid())
+  code          String    @unique // code court partagé aux joueurs (ex: ABCD)
+  hostUserId    String // Clerk user id de l'hôte
+  state         GameState @default(LOBBY)
+  categorySlug  String? // catégorie choisie (null = mélange)
+  questionCount Int       @default(10)
+  timePerQ      Int       @default(20) // secondes par question
+  currentIndex  Int       @default(-1) // index du round courant (-1 avant démarrage)
+  players       Player[]
+  rounds        Round[]
+  createdAt     DateTime  @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([code])
+}
+
+// Un joueur dans une partie (lié à un compte Clerk).
+model Player {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    String // Clerk user id
+  nickname  String
+  score     Int         @default(0)
+  answers   Answer[]
+  joinedAt  DateTime    @default(now())
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+}
+
+// Une question jouée pendant une partie (instance ordonnée d'une Question).
+model Round {
+  id         String      @id @default(cuid())
+  sessionId  String
+  session    GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  index      Int // position de la question dans la partie (0-based)
+  startedAt  DateTime?
+  answers    Answer[]
+
+  @@unique([sessionId, index])
+  @@index([sessionId])
+}
+
+// La réponse d'un joueur à un round.
+model Answer {
+  id            String   @id @default(cuid())
+  roundId       String
+  round         Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  playerId      String
+  player        Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  selectedIndex Int? // QCM
+  answerText    String? // modes futurs
+  isCorrect     Boolean  @default(false)
+  pointsEarned  Int      @default(0)
+  msToAnswer    Int      @default(0) // temps de réponse en ms (pour le bonus rapidité)
+  createdAt     DateTime @default(now())
+
+  @@unique([roundId, playerId])
+  @@index([roundId])
+  @@index([playerId])
+}
