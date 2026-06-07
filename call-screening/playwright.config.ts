@@ -27,6 +27,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: process.env.DATABASE_URL ?? "",
       DEFAULT_COUNTRY_CODE: process.env.DEFAULT_COUNTRY_CODE ?? "+33",
+      ENABLE_TEST_ENDPOINTS: "1",
     },
   },
 });
