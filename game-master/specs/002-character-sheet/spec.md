@@ -1,6 +1,6 @@
 # Spec 002 — Fiche de personnage minimale
 
-- Statut : Validée (porte 1, 2026-10-10) **sous réserve** de la question SRD ci-dessous (revue : finding bloquant)
+- Statut : Validée (porte 1, 2026-10-10) ; point SRD tranché par délégation : règle maison (ADR-0015, `Proposé`, accepté par la fusion de la PR)
 - Contextes bornés : Characters (nouveau), Play, Game Master
 - Référence SRD : 5.1 — caractéristiques (Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma) et modificateurs ; méthode de génération des valeurs à confirmer (voir Q1)
 - Décisions amont : `docs/00-vision.md` (v1 = fiche à 6 caractéristiques, test de caractéristique, PV ; joueurs = pseudo sans compte)
@@ -39,5 +39,5 @@ Personnage (`Character`), Caractéristique (`Ability`), Fiche de personnage.
 - **Identité** : le `playerId` vient du corps de la requête, sans authentification (décision v1 : pseudo sans compte). N'exposer l'API hors local qu'après une spec d'identité.
 - **Injection de prompt** : le texte libre du joueur influence l'arbitre (y compris la caractéristique testée). À traiter par une spec dédiée (délimitation de l'entrée, bornes côté domaine, journal des décisions).
 
-## À clarifier (bloquant)
-- **SRD** : le tableau standard figure-t-il dans le SRD 5.1 ? Non vérifié (source inaccessible). S'il n'y figure pas, ADR-0008 interdit de l'utiliser : choisir une méthode présente dans le SRD ou amender ADR-0008.
+## Décision SRD (déléguée par l'utilisateur)
+Le tableau standard n'a pas pu être vérifié dans le SRD 5.1. Il est conservé comme **règle maison** (ADR-0015). Alternative 100 % SRD si l'utilisateur la préfère : saisie libre 1..30.

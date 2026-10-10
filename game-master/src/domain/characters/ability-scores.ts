@@ -1,7 +1,7 @@
 import { ABILITIES, mapAbilities, type Ability } from "../rules/ability";
 import { AbilityScore } from "../rules/ability-score";
 
-/** Tableau standard : chaque valeur est attribuée exactement une fois. */
+/** Tableau standard : chaque valeur est attribuée exactement une fois. Règle maison (ADR-0015), non vérifiée dans le SRD 5.1. */
 export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8] as const;
 
 export class InvalidAbilityAssignmentError extends Error {

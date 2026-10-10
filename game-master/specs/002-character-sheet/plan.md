@@ -6,7 +6,7 @@
 | ADR-0002 gratuit/open source | Oui | Aucune nouvelle dépendance |
 | ADR-0004 hexagonal/DDD | Oui | Domaine pur ; port `CharacterRepository` ; unicité dans le cas d'usage |
 | ADR-0006 LLM derrière un port | Oui | Sortie arbitre étendue (ability) et validée par l'ACL |
-| ADR-0008 SRD 5.1 | **Non vérifié (bloquant)** | Tableau standard : existence dans le SRD 5.1 non vérifiée (noté en spec) |
+| ADR-0008 SRD 5.1 | Oui, avec exception | Tableau standard = règle maison, ADR-0015 (`Proposé`) |
 | Constitution « le LLM propose, le domaine décide » | Oui | Le domaine valide l'`Ability` |
 
 ## Modèle de domaine
