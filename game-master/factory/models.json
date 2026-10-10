@@ -1,0 +1,13 @@
+{
+  "_comment": "Mapping effort -> réglage par outil. null = non renseigné : l'outil utilise son défaut/modèle hérité. Ne rien inventer : à compléter par l'utilisateur.",
+  "claude": {
+    "model": { "low": "haiku", "medium": "sonnet", "high": "opus", "xhigh": "opus" },
+    "effort": { "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh" }
+  },
+  "codex": {
+    "model": null,
+    "effort": { "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh" }
+  },
+  "copilot": { "model": null, "effort": null },
+  "gemini": { "model": null, "effort": null }
+}
