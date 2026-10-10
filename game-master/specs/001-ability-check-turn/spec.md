@@ -1,6 +1,6 @@
 # Spec 001 — Tour de jeu avec test de caractéristique
 
-- Statut : Brouillon (réalisée rétroactivement pour le socle ; à valider)
+- Statut : Brouillon (réalisée rétroactivement pour le socle ; à valider). FR-002/FR-003 amendés par la spec 002 (caractéristique proposée par l'arbitre, personnage requis).
 - Contextes bornés : Play, Game Master, Rules
 - Référence SRD : 5.1, « Ability Checks » (d20 + modificateur ≥ DD) — section exacte à confirmer
 
@@ -16,7 +16,7 @@ Un joueur décrit une action ; le Game Master IA décide si un test est nécessa
 - FR-006 : API `POST /sessions/:id/turns` → 201 / 400 / 404.
 
 ## Hors périmètre
-Fiches de personnage (caractéristique par défaut = 10), avantage/désavantage, combat, WebSocket, persistance D1, front.
+Fiches de personnage (traitées par la spec 002), avantage/désavantage, combat, WebSocket, persistance D1, front.
 
 ## Scénarios BDD
 `tests/bdd/features/ability-check-turn.feature`

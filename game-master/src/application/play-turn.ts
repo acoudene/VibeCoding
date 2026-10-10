@@ -1,8 +1,9 @@
-import { AbilityScore } from "../domain/rules/ability-score";
+import type { CharacterRepository } from "../domain/characters/character-repository";
 import { resolveAbilityCheck, type AbilityCheckResult } from "../domain/rules/ability-check";
 import type { DiceRoller } from "../domain/rules/dice-roller";
 import type { PlayerId, SessionId, Turn } from "../domain/session/game-session";
 import type { SessionRepository } from "../domain/session/session-repository";
+import { CharacterRequiredError, SessionNotFoundError } from "./errors";
 import type { NarratorAgent } from "./game-master/agents/narrator";
 import type { RulesArbiterAgent } from "./game-master/agents/rules-arbiter";
 
@@ -12,30 +13,28 @@ export interface PlayTurnCommand {
   readonly action: string;
 }
 
-export class SessionNotFoundError extends Error {
-  constructor(id: SessionId) {
-    super(`Session ${id} not found`);
-  }
-}
-
 /** Cas d'usage : le Game Master (agents) arbitre et narre un tour. Les règles restent déterministes (domaine). */
 export class PlayTurn {
   constructor(
     private readonly sessions: SessionRepository,
+    private readonly characters: CharacterRepository,
     private readonly arbiter: RulesArbiterAgent,
     private readonly narrator: NarratorAgent,
     private readonly dice: DiceRoller,
-    /** Caractéristique par défaut en attendant le contexte Characters (voir docs/domain). */
-    private readonly defaultScore: AbilityScore = AbilityScore.of(10),
   ) {}
 
   async execute(cmd: PlayTurnCommand): Promise<Turn> {
     const session = await this.sessions.get(cmd.sessionId);
     if (!session) throw new SessionNotFoundError(cmd.sessionId);
+    const character = await this.characters.find(cmd.sessionId, cmd.playerId);
+    if (!character) throw new CharacterRequiredError(cmd.playerId, cmd.sessionId);
 
     const request = await this.arbiter.assess(cmd.action);
     const outcome = request.required
-      ? describe(resolveAbilityCheck(this.defaultScore, request.difficultyClass, this.dice))
+      ? describe(
+          request.ability,
+          resolveAbilityCheck(character.abilities.get(request.ability), request.difficultyClass, this.dice),
+        )
       : "Aucun test requis : l'action réussit.";
 
     const narration = await this.narrator.narrate(cmd.action, outcome);
@@ -45,7 +44,7 @@ export class PlayTurn {
   }
 }
 
-function describe(r: AbilityCheckResult): string {
+function describe(ability: string, r: AbilityCheckResult): string {
   const sign = r.modifier >= 0 ? "+" : "";
-  return `Test DD ${r.difficultyClass} : d20=${r.roll} ${sign}${r.modifier} = ${r.total} → ${r.success ? "réussite" : "échec"}.`;
+  return `Test de ${ability} DD ${r.difficultyClass} : d20=${r.roll} ${sign}${r.modifier} = ${r.total} → ${r.success ? "réussite" : "échec"}.`;
 }
