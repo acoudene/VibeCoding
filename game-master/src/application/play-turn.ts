@@ -1,9 +1,10 @@
 import type { CharacterRepository } from "../domain/characters/character-repository";
+import type { Ability } from "../domain/rules/ability";
 import { resolveAbilityCheck, type AbilityCheckResult } from "../domain/rules/ability-check";
 import type { DiceRoller } from "../domain/rules/dice-roller";
 import type { PlayerId, SessionId, Turn } from "../domain/session/game-session";
 import type { SessionRepository } from "../domain/session/session-repository";
-import { CharacterRequiredError, SessionNotFoundError } from "./errors";
+import { CharacterRequiredError, PlayerNotInSessionError, SessionNotFoundError } from "./errors";
 import type { NarratorAgent } from "./game-master/agents/narrator";
 import type { RulesArbiterAgent } from "./game-master/agents/rules-arbiter";
 
@@ -26,6 +27,7 @@ export class PlayTurn {
   async execute(cmd: PlayTurnCommand): Promise<Turn> {
     const session = await this.sessions.get(cmd.sessionId);
     if (!session) throw new SessionNotFoundError(cmd.sessionId);
+    if (!session.hasPlayer(cmd.playerId)) throw new PlayerNotInSessionError(cmd.playerId, cmd.sessionId);
     const character = await this.characters.find(cmd.sessionId, cmd.playerId);
     if (!character) throw new CharacterRequiredError(cmd.playerId, cmd.sessionId);
 
@@ -44,7 +46,7 @@ export class PlayTurn {
   }
 }
 
-function describe(ability: string, r: AbilityCheckResult): string {
+function describe(ability: Ability, r: AbilityCheckResult): string {
   const sign = r.modifier >= 0 ? "+" : "";
   return `Test de ${ability} DD ${r.difficultyClass} : d20=${r.roll} ${sign}${r.modifier} = ${r.total} → ${r.success ? "réussite" : "échec"}.`;
 }

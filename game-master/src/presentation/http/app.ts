@@ -49,10 +49,7 @@ export function createApp(playTurn: PlayTurn, createCharacter: CreateCharacter) 
     if (!parsed.success) return c.json({ error: "invalid_request" }, 400);
     try {
       const character = await createCharacter.execute({ sessionId: c.req.param("id"), ...parsed.data });
-      return c.json(
-        { playerId: character.playerId, name: character.name, abilities: character.abilities.toValues() },
-        201,
-      );
+      return c.json(character, 201);
     } catch (e) {
       if (e instanceof SessionNotFoundError) return c.json({ error: "session_not_found" }, 404);
       if (e instanceof PlayerNotInSessionError) return c.json({ error: "player_not_in_session" }, 403);

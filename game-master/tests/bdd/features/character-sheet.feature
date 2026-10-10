@@ -40,6 +40,15 @@ Fonctionnalité: Fiche de personnage minimale
     Quand "p1" joue l'action "je soulève la herse"
     Alors le narrateur reçoit le résultat "échec"
 
+  Scénario: Le test utilise le personnage du joueur qui agit
+    Étant donné une partie "s1" avec les joueurs "p1" et "p2"
+    Et que "p1" a le personnage "Aria" avec FOR 8, DEX 14, CON 13, INT 12, SAG 10, CHA 15
+    Et que "p2" a le personnage "Borin" avec FOR 15, DEX 14, CON 13, INT 12, SAG 10, CHA 8
+    Et que l'arbitre exige un test de CHA de difficulté 10
+    Et que le dé donne 8
+    Quand "p2" joue l'action "je persuade le marchand"
+    Alors le narrateur reçoit le résultat "échec"
+
   Scénario: Caractéristique inconnue proposée par l'arbitre
     Étant donné que "p1" a le personnage "Aria" avec FOR 8, DEX 14, CON 13, INT 12, SAG 10, CHA 15
     Et que l'arbitre exige un test de LUCK de difficulté 12

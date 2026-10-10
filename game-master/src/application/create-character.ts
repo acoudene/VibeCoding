@@ -13,16 +13,22 @@ export interface CreateCharacterCommand {
   readonly abilities: Readonly<Record<Ability, number>>;
 }
 
+export interface CharacterView {
+  readonly playerId: PlayerId;
+  readonly name: string;
+  readonly abilities: Readonly<Record<Ability, number>>;
+}
+
 export class CreateCharacter {
   constructor(
     private readonly sessions: SessionRepository,
     private readonly characters: CharacterRepository,
   ) {}
 
-  async execute(cmd: CreateCharacterCommand): Promise<Character> {
+  async execute(cmd: CreateCharacterCommand): Promise<CharacterView> {
     const session = await this.sessions.get(cmd.sessionId);
     if (!session) throw new SessionNotFoundError(cmd.sessionId);
-    if (!session.players.includes(cmd.playerId)) throw new PlayerNotInSessionError(cmd.playerId, cmd.sessionId);
+    if (!session.hasPlayer(cmd.playerId)) throw new PlayerNotInSessionError(cmd.playerId, cmd.sessionId);
     if (await this.characters.find(cmd.sessionId, cmd.playerId)) {
       throw new CharacterAlreadyExistsError(cmd.playerId, cmd.sessionId);
     }
@@ -33,7 +39,7 @@ export class CreateCharacter {
       cmd.name,
       AbilityScores.fromStandardArray(cmd.abilities),
     );
-    await this.characters.save(character);
-    return character;
+    await this.characters.add(character);
+    return { playerId: character.playerId, name: character.name, abilities: character.abilities.toValues() };
   }
 }

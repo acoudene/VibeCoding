@@ -10,12 +10,6 @@ export class PlayerNotInSessionError extends Error {
   }
 }
 
-export class CharacterAlreadyExistsError extends Error {
-  constructor(playerId: string, sessionId: string) {
-    super(`Player ${playerId} already has a character in session ${sessionId}`);
-  }
-}
-
 export class CharacterRequiredError extends Error {
   constructor(playerId: string, sessionId: string) {
     super(`Player ${playerId} has no character in session ${sessionId}`);
@@ -31,3 +25,4 @@ export class InvalidArbiterResponseError extends Error {
 // Erreurs de validation du domaine, ré-exportées pour que la présentation n'importe que l'application.
 export { InvalidAbilityAssignmentError } from "../domain/characters/ability-scores";
 export { CharacterNameRequiredError } from "../domain/characters/character";
+export { CharacterAlreadyExistsError } from "../domain/characters/character-repository";

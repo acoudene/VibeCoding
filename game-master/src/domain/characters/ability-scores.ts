@@ -1,4 +1,4 @@
-import { ABILITIES, type Ability } from "../rules/ability";
+import { ABILITIES, mapAbilities, type Ability } from "../rules/ability";
 import { AbilityScore } from "../rules/ability-score";
 
 /** Tableau standard : chaque valeur est attribuée exactement une fois. */
@@ -19,11 +19,7 @@ export class AbilityScores {
     if (values.length !== STANDARD_ARRAY.length || values.some((v, i) => v !== STANDARD_ARRAY[i])) {
       throw new InvalidAbilityAssignmentError();
     }
-    const scores = Object.fromEntries(ABILITIES.map((a) => [a, AbilityScore.of(assignment[a])])) as Record<
-      Ability,
-      AbilityScore
-    >;
-    return new AbilityScores(scores);
+    return new AbilityScores(mapAbilities((a) => AbilityScore.of(assignment[a])));
   }
 
   get(ability: Ability): AbilityScore {
@@ -31,6 +27,10 @@ export class AbilityScores {
   }
 
   toValues(): Record<Ability, number> {
-    return Object.fromEntries(ABILITIES.map((a) => [a, this.scores[a].value])) as Record<Ability, number>;
+    return mapAbilities((a) => this.scores[a].value);
+  }
+
+  equals(other: AbilityScores): boolean {
+    return ABILITIES.every((a) => this.scores[a].value === other.scores[a].value);
   }
 }

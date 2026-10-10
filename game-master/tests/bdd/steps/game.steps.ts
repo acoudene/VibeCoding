@@ -73,6 +73,13 @@ Given("une partie {string} avec le joueur {string}", async function (this: World
   await this.sessions.save(new GameSession(id, [player]));
 });
 
+Given(
+  "une partie {string} avec les joueurs {string} et {string}",
+  async function (this: World, id: string, a: string, b: string) {
+    await this.sessions.save(new GameSession(id, [a, b]));
+  },
+);
+
 const SHEET = "avec FOR {int}, DEX {int}, CON {int}, INT {int}, SAG {int}, CHA {int}";
 
 Given(`{string} a le personnage {string} ${SHEET}`, async function (this: World, player: string, name: string, f: number, d: number, c: number, i: number, w: number, h: number) {

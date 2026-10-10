@@ -5,7 +5,7 @@
 ## Contexte
 Utilisateur issu de l'écosystème Microsoft ; besoin d'un seul langage client/serveur, hébergeable gratuitement.
 ## Décision
-TypeScript (mode `strict`) partout. Serveur : Hono. Tests : Vitest (unitaire), Cucumber.js (BDD), dependency-cruiser (architecture). Validation aux frontières : Zod. Front web : à confirmer (❓ React/Vite proposé).
+TypeScript (mode `strict`) partout. Serveur : Hono. Tests : Vitest (unitaire), Cucumber.js (BDD), dependency-cruiser (architecture). Validation aux frontières : Zod. Front web : **Proposé : React + Vite sur Cloudflare Pages, interface de chat** (choix utilisateur du 2026-10-10, à formaliser par une spec front avant implémentation).
 ## Alternatives écartées
 .NET (hébergement gratuit moins simple), Python.
 ## Conséquences

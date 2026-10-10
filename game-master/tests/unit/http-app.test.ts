@@ -50,6 +50,14 @@ describe("POST /sessions/:id/characters", () => {
     expect(res.status).toBe(400);
   });
 
+  it.each([
+    ["missing ability", { STR: 15, DEX: 14, CON: 13, INT: 12, WIS: 10 }],
+    ["non-integer ability", { ...abilities, STR: 15.5 }],
+  ])("400 on %s", async (_label, bad) => {
+    const res = await character(await appWith([]), "s1", { playerId: "p1", name: "A", abilities: bad });
+    expect(res.status).toBe(400);
+  });
+
   it("404 on unknown session", async () => {
     expect((await character(await appWith([]), "nope")).status).toBe(404);
   });
@@ -83,6 +91,10 @@ describe("POST /sessions/:id/turns", () => {
 
   it("404 on unknown session", async () => {
     expect((await turn(await appWith([]), "nope")).status).toBe(404);
+  });
+
+  it("403 when the player is not in the session", async () => {
+    expect((await turn(await appWith([]), "s1", { playerId: "p9", action: "x" })).status).toBe(403);
   });
 
   it("409 when the player has no character", async () => {

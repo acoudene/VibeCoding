@@ -1,5 +1,5 @@
 import type { Character } from "../../domain/characters/character";
-import type { CharacterRepository } from "../../domain/characters/character-repository";
+import { CharacterAlreadyExistsError, type CharacterRepository } from "../../domain/characters/character-repository";
 import type { PlayerId, SessionId } from "../../domain/session/game-session";
 
 /** Adaptateur de développement/test (l'adaptateur D1 viendra par spec dédiée). */
@@ -10,8 +10,10 @@ export class InMemoryCharacterRepository implements CharacterRepository {
     return this.store.get(key(sessionId, playerId));
   }
 
-  async save(character: Character) {
-    this.store.set(key(character.sessionId, character.playerId), character);
+  async add(character: Character) {
+    const k = key(character.sessionId, character.playerId);
+    if (this.store.has(k)) throw new CharacterAlreadyExistsError(character.playerId, character.sessionId);
+    this.store.set(k, character);
   }
 }
 
