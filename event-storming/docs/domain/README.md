@@ -24,7 +24,7 @@ Modeling ──(ACL)──▶ LLM externe (Ollama / tier gratuit / Claude option
   - un lien hors grammaire est **accepté** mais marqué `outOfGrammar` (anomalie) — on ne bloque jamais l'atelier. `outOfGrammar` est **dérivé** des types des deux extrémités, jamais stocké : changer le type d'un post-it requalifie ses liens ;
   - supprimer un post-it supprime ses liens ; supprimer un cadre ne supprime pas ses post-its ;
   - un post-it appartient au cadre qui contient son centre ; déplacer un cadre déplace les post-its qui lui appartiennent au début du déplacement.
-  - ❓ Cadres qui se chevauchent : un post-it dont le centre est dans plusieurs cadres appartient au **plus petit** (proposition, à valider).
+  - cadres qui se chevauchent : un post-it dont le centre est dans plusieurs cadres appartient au **plus petit** (décision utilisateur, spec 002).
 - Grammaire « design level » des liens autorisés :
   - `Actor → Command`, `Command → Aggregate`, `Aggregate → DomainEvent`
   - `DomainEvent → Policy`, `Policy → Command`
