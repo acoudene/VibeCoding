@@ -1,15 +1,24 @@
-import type { NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { memo, useState } from "react";
 import { stickyColorVar } from "../sticky-kinds";
 import { stickyFontSize } from "./sticky-font";
 import { useStickyEditing } from "./sticky-editing";
 import type { StickyNode } from "./sticky-nodes";
 
-/** Post-it : couleur dérivée du type, taille fixe (FR-011, FR-017), texte édité en place (FR-013). */
+/** Les 4 points de connexion (FR-020) ; en mode de connexion « souple », chacun peut commencer ou recevoir un lien. */
+const SIDES = [Position.Top, Position.Right, Position.Bottom, Position.Left] as const;
+
+/**
+ * Post-it : couleur dérivée du type, taille fixe (FR-011, FR-017), texte édité en place (FR-013),
+ * 4 points de connexion visibles au survol ou à la sélection (FR-020).
+ */
 export const StickyNodeView = memo(function StickyNodeView({ id, data }: NodeProps<StickyNode>) {
   return (
     <div className="sticky-node" style={{ background: stickyColorVar(data.color) }} data-kind={data.kind}>
       {data.editing ? <StickyTextEditor id={id} initialLabel={data.label} /> : <StickyText label={data.label} />}
+      {SIDES.map((side) => (
+        <Handle key={side} id={side} type="source" position={side} className="sticky-node__handle" />
+      ))}
     </div>
   );
 });

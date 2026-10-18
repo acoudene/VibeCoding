@@ -1,6 +1,11 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { CreateBoard } from "../../application/board/create-board";
+import type { DeleteSelection } from "../../application/board/delete-selection";
+import type { DrawFrame } from "../../application/board/draw-frame";
+import type { EditFrame } from "../../application/board/edit-frame";
+import type { EditLink } from "../../application/board/edit-link";
 import type { EditSticky } from "../../application/board/edit-sticky";
+import type { LinkStickies } from "../../application/board/link-stickies";
 import type { MoveSticky } from "../../application/board/move-sticky";
 import type { OpenBoard } from "../../application/board/open-board";
 import type { PlaceSticky } from "../../application/board/place-sticky";
@@ -26,6 +31,11 @@ export interface Services {
   readonly placeSticky: PlaceSticky;
   readonly editSticky: EditSticky;
   readonly moveSticky: MoveSticky;
+  readonly deleteSelection: DeleteSelection;
+  readonly linkStickies: LinkStickies;
+  readonly editLink: EditLink;
+  readonly drawFrame: DrawFrame;
+  readonly editFrame: EditFrame;
   /** Tableau ouvert (même objet tant qu'il n'a pas changé) ; lève une erreur avant la fin de `openBoard`. */
   readonly currentBoard: () => Board;
   /** Notifié après chaque modification du tableau ouvert (cas d'usage, annuler, rétablir), jamais à l'ouverture. */

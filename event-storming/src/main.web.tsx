@@ -1,6 +1,11 @@
 import { createRoot } from "react-dom/client";
 import { CreateBoard } from "./application/board/create-board";
+import { DeleteSelection } from "./application/board/delete-selection";
+import { DrawFrame } from "./application/board/draw-frame";
+import { EditFrame } from "./application/board/edit-frame";
+import { EditLink } from "./application/board/edit-link";
 import { EditSticky } from "./application/board/edit-sticky";
+import { LinkStickies } from "./application/board/link-stickies";
 import { MoveSticky } from "./application/board/move-sticky";
 import { OpenBoard } from "./application/board/open-board";
 import { PlaceSticky } from "./application/board/place-sticky";
@@ -21,6 +26,7 @@ const baseUrl = window.location.origin;
 const gateway = new HttpBoardGateway(baseUrl, (input, init) => fetch(input, init));
 const store = new YjsBoardStore(); // BoardStore et BoardHistory : une seule instance pour les deux ports
 const recentBoards = new LocalStorageRecentBoards();
+const ids = new CryptoIdGenerator();
 
 const services: Services = {
   createBoard: new CreateBoard(gateway),
@@ -36,9 +42,14 @@ const services: Services = {
       beaconUrl: `${baseUrl}/api/boards/${id}/updates`,
       sendBeacon: (url, data) => navigator.sendBeacon(url, data),
     }),
-  placeSticky: new PlaceSticky(store, new CryptoIdGenerator()),
+  placeSticky: new PlaceSticky(store, ids),
   editSticky: new EditSticky(store),
   moveSticky: new MoveSticky(store),
+  deleteSelection: new DeleteSelection(store),
+  linkStickies: new LinkStickies(store, ids),
+  editLink: new EditLink(store),
+  drawFrame: new DrawFrame(store, ids),
+  editFrame: new EditFrame(store),
   currentBoard: () => store.current(),
   onBoardChange: (listener) => store.onUpdate(() => listener()),
 };

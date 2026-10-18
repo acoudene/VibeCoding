@@ -35,9 +35,9 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T040 [présentation] API Hono `/api/boards` (validation des identifiants et des tailles, codes HTTP du plan) + `src/main.worker.ts`
 - [x] T041 [présentation] Accueil : « Nouveau tableau », tableaux récents, retrait (`pages/Home.tsx`) + `src/main.web.tsx`
 - [x] T042 [présentation] Tableau : canvas xyflow, nœud post-it (couleur dérivée, taille fixe, texte en place, police automatique), palette des 9 types, légende (`pages/BoardPage.tsx`, `canvas/*`, `legend/*`)
-- [ ] T043 [présentation] Liens : 4 points de connexion, accroche au côté le plus proche, flèche, style et info-bulle hors grammaire (`canvas/*`)
-- [ ] T044 [présentation] Cadres : `F` + glisser, nom édité à la création, déplacement entraînant les membres, redimensionnement (`canvas/*`)
-- [ ] T045 [présentation] Panneaux contextuels (post-it : type, identifiant EN, notes, supprimer ; lien : inverser, supprimer ; tableau : nom), indicateur d'enregistrement (`panels/*`)
+- [x] T043 [présentation] Liens : 4 points de connexion, accroche au côté le plus proche, flèche, style et info-bulle hors grammaire (`canvas/*`)
+- [x] T044 [présentation] Cadres : `F` + glisser, nom édité à la création, déplacement entraînant les membres, redimensionnement (`canvas/*`)
+- [x] T045 [présentation] Panneaux contextuels (post-it : type, identifiant EN, notes, supprimer ; lien : inverser, supprimer ; tableau : nom), indicateur d'enregistrement (`panels/*`)
 - [ ] T046 [présentation] Sélection, raccourcis (`Suppr`, `Ctrl+D`, `Ctrl+C`/`Ctrl+V`, `Ctrl+Z`/`Ctrl+Y`/`Ctrl+Maj+Z`), navigation (molette, `Espace`+glisser, paliers, ajuster), vue mémorisée (`hooks/*`)
 
 ## Tests de bout en bout

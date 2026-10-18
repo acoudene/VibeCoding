@@ -1,16 +1,9 @@
-import type { SyncStatus } from "../../../application/ports/board-sync";
 import { BoardEditor } from "../canvas/BoardEditor";
-import { useBoard } from "../hooks/use-board";
 import { useBoardSession } from "../hooks/use-board-session";
 import { followLink } from "../navigation";
+import { BoardNameField } from "../panels/BoardNameField";
+import { SaveIndicator } from "../panels/SaveIndicator";
 import "./board-page.css";
-
-const SYNC_LABELS: Record<SyncStatus, string> = {
-  saved: "Enregistré",
-  saving: "Enregistrement…",
-  offline: "Hors ligne",
-  error: "Erreur d'enregistrement",
-};
 
 /** Page d'un tableau : ouverture et synchronisation (`useBoardSession`), puis espace de travail. */
 export function BoardPage({ id }: { id: string }) {
@@ -24,15 +17,10 @@ export function BoardPage({ id }: { id: string }) {
         {session.phase === "loading" && <p>Chargement…</p>}
         {session.phase === "notFound" && <h1>Tableau introuvable</h1>}
         {session.phase === "failed" && <p role="alert">Impossible d'ouvrir le tableau.</p>}
-        {session.phase === "open" && <BoardTitle />}
-        {session.phase === "open" && <p aria-live="polite">{SYNC_LABELS[sync]}</p>}
+        {session.phase === "open" && <BoardNameField />}
+        {session.phase === "open" && <SaveIndicator status={sync} />}
       </header>
       {session.phase === "open" && <BoardEditor />}
     </main>
   );
-}
-
-function BoardTitle() {
-  const { name } = useBoard();
-  return <h1 className="board-page__title">{name}</h1>;
 }

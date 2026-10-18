@@ -22,6 +22,7 @@ describe("syncStickyNodes", () => {
         position: { x: 10, y: 20 },
         width: 160,
         height: 160,
+        zIndex: 2,
         selected: false,
         ariaLabel: "Policy : Si payé",
         data: { kind: "Policy", kindName: "Policy", color: "purple", label: "Si payé", editing: false },
@@ -59,5 +60,22 @@ describe("syncStickyNodes", () => {
       ["s1", false, false],
       ["s2", true, true],
     ]);
+  });
+
+  it("réutilise l'objet data inchangé pour que le rendu mémoïsé du post-it soit efficace", () => {
+    const previous = syncStickyNodes([], board(sticky("s1", { label: "a" }), sticky("s2", { label: "b" })));
+    const nodes = syncStickyNodes(previous, board(sticky("s1", { label: "a", position: { x: 9, y: 9 } }), sticky("s2", { label: "c" })));
+    expect(nodes[0]?.data).toBe(previous[0]?.data);
+    expect(nodes[1]?.data).not.toBe(previous[1]?.data);
+  });
+
+  it("réutilise le nœud précédent quand rien n'a changé", () => {
+    const previous = syncStickyNodes([], board(sticky("s1")));
+    expect(syncStickyNodes(previous, board(sticky("s1")))[0]).toBe(previous[0]);
+  });
+
+  it("place les post-its au-dessus des liens et des cadres", () => {
+    const [node] = syncStickyNodes([], board(sticky("s1")));
+    expect(node?.zIndex).toBe(2);
   });
 });

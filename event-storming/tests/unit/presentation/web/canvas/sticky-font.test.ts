@@ -17,4 +17,12 @@ describe("stickyFontSize", () => {
   it("ignore les espaces en début et en fin de texte", () => {
     expect(stickyFontSize(`  ${"a".repeat(10)}${" ".repeat(100)}`)).toBe(stickyFontSize("a".repeat(10)));
   });
+  it("tient compte des retours à la ligne : un texte court sur plusieurs lignes rétrécit aussi", () => {
+    const sixLines = ["a", "b", "c", "d", "e", "f"].join("\n");
+    expect(stickyFontSize(sixLines)).toBeLessThan(STICKY_FONT_SIZES[0]);
+    expect(stickyFontSize(Array(12).fill("a").join("\n"))).toBeLessThan(stickyFontSize(sixLines));
+  });
+  it("ignore les lignes vides en début et en fin de texte", () => {
+    expect(stickyFontSize("\n\n\nPayé\n\n\n\n\n")).toBe(stickyFontSize("Payé"));
+  });
 });
