@@ -4,10 +4,11 @@
   "type": "module",
   "version": "0.1.0",
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tests/workers/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tests/workers/tsconfig.json && tsc --noEmit -p tests/e2e/tsconfig.json",
     "test": "vitest run",
     "test:workers": "vitest run --config vitest.workers.config.ts",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --grep-invert @perf",
+    "test:e2e:perf": "playwright test --grep @perf",
     "test:bdd": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js",
     "test:arch": "depcruise src --config .dependency-cruiser.cjs",
     "factory:sync": "node scripts/sync-factory.mjs",

@@ -41,9 +41,9 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T046 [présentation] Sélection, raccourcis (`Suppr`, `Ctrl+D`, `Ctrl+C`/`Ctrl+V`, `Ctrl+Z`/`Ctrl+Y`/`Ctrl+Maj+Z`), navigation (molette, `Espace`+glisser, paliers, ajuster), vue mémorisée (`hooks/*`)
 
 ## Tests de bout en bout
-- [ ] T050 [e2e] `playwright.config.ts` (serveurs Vite + `wrangler dev`) ; scénarios de la colonne E2E du tableau « Couverture des exigences » du plan (`tests/e2e/*.spec.ts`)
-- [ ] T051 [e2e] Mesure 300 post-its + 300 liens (FPS au déplacement et au zoom), non bloquante en CI
-- [ ] T052 [ci] Job `e2e` dans `.github/workflows/event-storming-ci.yml` (installation des navigateurs Playwright), séparé de `verify`
+- [x] T050 [e2e] `playwright.config.ts` (serveurs Vite + `wrangler dev`) ; scénarios de la colonne E2E du tableau « Couverture des exigences » du plan (`tests/e2e/*.spec.ts`)
+- [x] T051 [e2e] Mesure 300 post-its + 300 liens (FPS au déplacement et au zoom), non bloquante en CI
+- [x] T052 [ci] Job `e2e` dans `.github/workflows/event-storming-ci.yml` (installation des navigateurs Playwright), séparé de `verify`
 
 ## Vérification (`npm run verify`, revue)
 - [ ] T060 `npm run verify` et `npm run test:e2e` verts ; plus aucun scénario `@wip` dans `tests/bdd/features/board/`
