@@ -16,7 +16,23 @@ export function encodeBoard(board: Board): BoardSnapshot {
 /** Un instantané vide (tableau neuf) donne un tableau vide nommé par défaut. */
 export function decodeBoard(id: BoardId, snapshot: BoardSnapshot): Board {
   if (snapshot.length === 0) return Board.create(id);
-  // Octets produits par `encodeBoard` de cet adaptateur de test : aucune source externe à valider.
-  const stored: StoredBoard = JSON.parse(new TextDecoder().decode(snapshot));
-  return Board.restore({ id, ...stored });
+  const parsed: unknown = JSON.parse(new TextDecoder().decode(snapshot));
+  if (!isStoredBoard(parsed)) throw new Error("Instantané de tableau invalide");
+  return Board.restore({ id, ...parsed });
+}
+
+/** Garde de forme minimale : le contenu des éléments reste celui écrit par `encodeBoard`. */
+function isStoredBoard(value: unknown): value is StoredBoard {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "name" in value &&
+    typeof value.name === "string" &&
+    "stickies" in value &&
+    Array.isArray(value.stickies) &&
+    "links" in value &&
+    Array.isArray(value.links) &&
+    "frames" in value &&
+    Array.isArray(value.frames)
+  );
 }

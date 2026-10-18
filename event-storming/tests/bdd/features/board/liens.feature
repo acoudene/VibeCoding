@@ -1,5 +1,4 @@
 # language: fr
-@wip
 Fonctionnalité: Liens entre post-its
   Un lien hors grammaire est accepté mais signalé ; on ne bloque jamais l'atelier.
   (spec 002 : FR-020, FR-022, FR-023, FR-024 ; grammaire de docs/domain/README.md)

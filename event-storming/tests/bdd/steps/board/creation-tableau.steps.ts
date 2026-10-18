@@ -31,7 +31,7 @@ When("j'ouvre le tableau {string}", async function (this: BoardWorld, nameOrId: 
 });
 
 When("je renomme le tableau en {string}", async function (this: BoardWorld, name: string) {
-  await this.attempt(() => new RenameBoard(this.store).execute({ name }));
+  await this.attempt(() => new RenameBoard(this.store, this.recentBoards).execute({ name }));
 });
 
 When("je retire {string} des tableaux récents", function (this: BoardWorld, name: string) {

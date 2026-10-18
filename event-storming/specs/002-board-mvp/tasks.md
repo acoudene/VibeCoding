@@ -18,8 +18,8 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 ## Application
 - [x] T020 [application] Ports `BoardStore`, `BoardHistory`, `BoardGateway`, `RecentBoards`, `Clock` ; adaptateurs mémoire pour la BDD (`src/application/ports/*`, `src/infrastructure/memory/*`)
 - [x] T021 [application] Steps BDD + cas d'usage `CreateBoard`, `OpenBoard`, `RenameBoard`, `ListRecentBoards`, `ForgetRecentBoard` ; retirer `@wip` de `creation-tableau.feature`
-- [ ] T022 [application] Steps BDD + `PlaceSticky`, `EditSticky`, `MoveSticky`, `DeleteSelection` ; retirer `@wip` de `post-its.feature`
-- [ ] T023 [application] Steps BDD + `LinkStickies`, `EditLink` (inverser, supprimer) ; retirer `@wip` de `liens.feature`
+- [x] T022 [application] Steps BDD + `PlaceSticky`, `EditSticky`, `MoveSticky`, `DeleteSelection` ; retirer `@wip` de `post-its.feature`
+- [x] T023 [application] Steps BDD + `LinkStickies`, `EditLink` (inverser, supprimer) ; retirer `@wip` de `liens.feature`
 - [ ] T024 [application] Steps BDD + `DrawFrame`, `EditFrame` (renommer, redimensionner, déplacer, supprimer) ; retirer `@wip` de `cadres.feature`
 - [ ] T025 [application] Steps BDD + `DuplicateSelection`, `CopySelection`, `PasteFragment`, `Undo`, `Redo` ; retirer `@wip` de `selection-historique.feature`
 

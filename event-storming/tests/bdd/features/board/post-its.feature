@@ -1,5 +1,4 @@
 # language: fr
-@wip
 Fonctionnalité: Post-its typés
   On choisit un type, jamais une couleur ; la couleur découle du type.
   (spec 002 : FR-010, FR-011, FR-012, FR-014, FR-015, FR-017 ; ADR-0016)

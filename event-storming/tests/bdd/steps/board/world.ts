@@ -4,7 +4,11 @@ import type { BoardStore } from "../../../../src/application/ports/board-store";
 import { CreateBoard } from "../../../../src/application/board/create-board";
 import { OpenBoard } from "../../../../src/application/board/open-board";
 import { RenameBoard } from "../../../../src/application/board/rename-board";
+import { LinkStickies } from "../../../../src/application/board/link-stickies";
+import { PlaceSticky } from "../../../../src/application/board/place-sticky";
 import { boardId, type BoardId } from "../../../../src/domain/board/board";
+import type { Sticky } from "../../../../src/domain/board/sticky";
+import { STICKY_KINDS, type StickyKind } from "../../../../src/domain/board/sticky-kind";
 import { FixedClock } from "../../../../src/infrastructure/memory/fixed-clock";
 import { InMemoryBoardGateway } from "../../../../src/infrastructure/memory/in-memory-board-gateway";
 import { InMemoryBoardStore } from "../../../../src/infrastructure/memory/in-memory-board-store";
@@ -27,6 +31,12 @@ export class BoardWorld extends World {
   private readonly memoryStore = new InMemoryBoardStore();
   readonly store: BoardStore = this.memoryStore;
   readonly history: BoardHistory = this.memoryStore;
+
+  /** Type choisi dans la palette (« le type actif … »). */
+  activeKind: StickyKind = "DomainEvent";
+  /** Dernier post-it posé et dernier lien créé : « ce post-it », « ce lien ». */
+  lastStickyId: string | undefined;
+  lastLinkId: string | undefined;
 
   private readonly boardIdsByName = new Map<string, BoardId>();
   private readonly pendingSync: Promise<void>[] = [];
@@ -79,10 +89,39 @@ export class BoardWorld extends World {
     const known = this.boardIdsByName.get(name);
     if (known !== undefined) return known;
     const id = await this.createAndOpenBoard();
-    new RenameBoard(this.store).execute({ name });
+    new RenameBoard(this.store, this.recentBoards).execute({ name });
     await this.flushSync();
     this.boardIdsByName.set(name, id);
     return id;
+  }
+
+  /** Pose un post-it nommé par son texte, en dessous des précédents pour qu'ils ne se recouvrent pas. */
+  placeSticky(label: string, kind: StickyKind, position = { x: 0, y: this.store.current().stickies.length * 200 }): string {
+    const { id } = new PlaceSticky(this.store, this.ids).execute({ kind, position, label });
+    this.lastStickyId = id;
+    return id;
+  }
+
+  /** Relie deux post-its désignés par leur texte. */
+  linkStickies(sourceLabel: string, targetLabel: string): void {
+    const { id } = new LinkStickies(this.store, this.ids).execute({
+      sourceId: this.stickyNamed(sourceLabel).id,
+      targetId: this.stickyNamed(targetLabel).id,
+    });
+    this.lastLinkId = id;
+  }
+
+  /** Post-it désigné par son texte dans les scénarios. */
+  stickyNamed(label: string): Sticky {
+    const sticky = this.store.current().stickies.find((s) => s.label === label);
+    if (sticky === undefined) throw new Error(`Aucun post-it « ${label} » sur le tableau`);
+    return sticky;
+  }
+
+  get lastSticky(): Sticky {
+    const sticky = this.lastStickyId === undefined ? undefined : this.store.current().sticky(this.lastStickyId);
+    if (sticky === undefined) throw new Error("Aucun post-it posé dans ce scénario");
+    return sticky;
   }
 
   /** Identifiant d'un tableau désigné par son nom s'il est connu, sinon par son identifiant. */
@@ -90,14 +129,23 @@ export class BoardWorld extends World {
     return this.boardIdsByName.get(nameOrId) ?? boardId(nameOrId);
   }
 
-  private async flushSync(): Promise<void> {
+  /** Attend les envois au serveur en cours ; une synchronisation rejetée fait échouer le scénario. */
+  async flushSync(): Promise<void> {
     await Promise.all(this.pendingSync.splice(0));
   }
 }
 
+/** Type de post-it nommé dans un scénario ; un nom inconnu est une faute de frappe de la feature. */
+export function stickyKind(raw: string): StickyKind {
+  const kind = STICKY_KINDS.find((k) => k === raw);
+  if (kind === undefined) throw new Error(`Type de post-it inconnu : ${raw}`);
+  return kind;
+}
+
 setWorldConstructor(BoardWorld);
 
-After(function (this: BoardWorld, { result }) {
+After(async function (this: BoardWorld, { result }) {
+  await this.flushSync();
   if (result?.status === Status.PASSED && this.uncheckedError !== undefined) {
     throw new Error(`Erreur non vérifiée par le scénario : ${this.uncheckedError.message}`);
   }
