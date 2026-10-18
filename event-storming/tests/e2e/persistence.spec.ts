@@ -77,12 +77,21 @@ test.describe("Persistance et indicateur d'enregistrement (FR-003, FR-004)", () 
     }
   });
 
-  test("une erreur du serveur affiche « Erreur d'enregistrement »", async ({ page }) => {
+  test("un refus définitif du serveur (400) affiche « Erreur d'enregistrement »", async ({ page }) => {
+    await createBoardViaUi(page);
+    await waitSaved(page);
+    await page.route("**/api/boards/*/updates", (route) => route.fulfill({ status: 400, body: "refusé" }));
+    await placeSticky(page, "Événement", { x: 500, y: 300 }, "Échec");
+    await expect(page.locator(".save-indicator")).toHaveText("Erreur d'enregistrement", { timeout: 15_000 });
+    await page.unroute("**/api/boards/*/updates");
+  });
+
+  test("une panne transitoire du serveur (500) affiche « Hors ligne », pas une erreur définitive", async ({ page }) => {
     await createBoardViaUi(page);
     await waitSaved(page);
     await page.route("**/api/boards/*/updates", (route) => route.fulfill({ status: 500, body: "boom" }));
-    await placeSticky(page, "Événement", { x: 500, y: 300 }, "Échec");
-    await expect(page.locator(".save-indicator")).toHaveText(/Erreur d'enregistrement|Hors ligne/, { timeout: 15_000 });
+    await placeSticky(page, "Événement", { x: 500, y: 300 }, "Panne");
+    await expect(page.locator(".save-indicator")).toHaveText("Hors ligne", { timeout: 15_000 });
     await page.unroute("**/api/boards/*/updates");
   });
 });

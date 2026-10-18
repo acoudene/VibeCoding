@@ -113,6 +113,48 @@ test.describe("Liens (FR-020, FR-021, FR-022, FR-023)", () => {
     await expect.poll(() => links(page).first().locator("path").first().getAttribute("d")).not.toBe(pathBefore);
   });
 
+  test("le lien s'accroche au côté de la cible tourné vers la source, et change de côté quand la source se déplace (FR-021)", async ({ page }) => {
+    await createBoardViaUi(page);
+    const actor = await placeSticky(page, "Acteur", { x: 450, y: 450 }, "Client");
+    const command = await placeSticky(page, "Commande", { x: 800, y: 450 }, "Passer commande");
+    await actor.hover();
+    await drag(page, await centerOf(actor.locator('.sticky-node__handle[data-handleid="right"]')), await centerOf(command));
+    await expect(links(page)).toHaveCount(1);
+
+    const target = await flowPosition(command);
+    const rect = { left: target.x, right: target.x + 160, top: target.y, bottom: target.y + 160, midX: target.x + 80, midY: target.y + 80 };
+    const endpoint = async () => {
+      const d = (await links(page).first().locator("path").first().getAttribute("d")) ?? "";
+      const numbers = d.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? [];
+      return { x: numbers[numbers.length - 2] ?? Number.NaN, y: numbers[numbers.length - 1] ?? Number.NaN };
+    };
+    const expectEndpoint = async (x: number, y: number) =>
+      expect
+        .poll(async () => {
+          const end = await endpoint();
+          return Math.hypot(end.x - x, end.y - y);
+        })
+        .toBeLessThan(3);
+
+    // Source à gauche : le lien arrive au milieu du côté gauche de la cible.
+    await expectEndpoint(rect.left, rect.midY);
+
+    // Source au-dessus : côté haut.
+    let source = await centerOf(actor);
+    await drag(page, source, { x: 800, y: 150 });
+    await expectEndpoint(rect.midX, rect.top);
+
+    // Source à droite : côté droit.
+    source = await centerOf(actor);
+    await drag(page, source, { x: 1150, y: 450 });
+    await expectEndpoint(rect.right, rect.midY);
+
+    // Source en dessous : côté bas.
+    source = await centerOf(actor);
+    await drag(page, source, { x: 800, y: 750 });
+    await expectEndpoint(rect.midX, rect.bottom);
+  });
+
   test("un lien hors grammaire est en pointillés rouges avec une info-bulle « attendu : … »", async ({ page }) => {
     await createBoardViaUi(page);
     const event = await placeSticky(page, "Événement", { x: 400, y: 300 }, "Commande passée");

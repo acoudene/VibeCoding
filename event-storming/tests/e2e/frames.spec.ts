@@ -1,5 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { centerOf, createBoardViaUi, drag, frames, placeSticky, stickies, waitSaved } from "./helpers";
+
+/** Taille du cadre dans le tableau (style en ligne du nœud xyflow). */
+async function flowSize(frame: Locator): Promise<{ width: number; height: number }> {
+  return frame.evaluate((el) => ({ width: parseFloat((el as HTMLElement).style.width), height: parseFloat((el as HTMLElement).style.height) }));
+}
 
 async function drawFrame(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
   await page.keyboard.press("f");
@@ -56,6 +61,7 @@ test.describe("Cadres (FR-030, FR-031, FR-032)", () => {
 
     const frame = frames(page).first();
     const before = await frame.boundingBox();
+    const sizeBefore = await flowSize(frame);
     const handle = frame.locator(".react-flow__resize-control.handle.bottom.right");
     await expect(handle).toBeVisible();
     const from = await centerOf(handle);
@@ -64,12 +70,16 @@ test.describe("Cadres (FR-030, FR-031, FR-032)", () => {
     await expect.poll(async () => (await frame.boundingBox())?.height ?? 0).toBeGreaterThan((before?.height ?? 0) + 40);
 
     await waitSaved(page);
-    const resized = await frame.boundingBox();
+    // Taille dans le tableau (indépendante du zoom) : agrandie d'environ 120 x 80 (le premier pas du pointeur est ignoré).
+    const resized = await flowSize(frame);
+    expect(resized.width).toBeGreaterThan(sizeBefore.width + 80);
+    expect(resized.width).toBeLessThan(sizeBefore.width + 160);
+    expect(resized.height).toBeGreaterThan(sizeBefore.height + 40);
+    expect(resized.height).toBeLessThan(sizeBefore.height + 120);
+
     await page.reload();
     await expect(frames(page)).toHaveCount(1);
-    const reloaded = await frames(page).first().boundingBox();
-    // La vue peut être réajustée à l'ouverture : on compare les proportions.
-    expect((reloaded?.width ?? 0) / (reloaded?.height ?? 1)).toBeCloseTo((resized?.width ?? 0) / (resized?.height ?? 1), 1);
+    expect(await flowSize(frames(page).first())).toEqual(resized);
   });
 
   test("le fond du cadre laisse passer les clics : un post-it se pose dedans sans déplacer le cadre", async ({ page }) => {
