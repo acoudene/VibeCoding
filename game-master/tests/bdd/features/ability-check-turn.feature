@@ -4,6 +4,7 @@ Fonctionnalité: Résolution d'un tour avec test de caractéristique
 
   Contexte:
     Étant donné une partie "s1" avec le joueur "p1"
+    Et que "p1" a le personnage "Aria" avec FOR 15, DEX 14, CON 13, INT 12, SAG 10, CHA 8
 
   Scénario: Une action sans risque ne déclenche aucun test
     Étant donné que l'arbitre décide qu'aucun test n'est requis
@@ -11,13 +12,13 @@ Fonctionnalité: Résolution d'un tour avec test de caractéristique
     Alors le tour 1 est enregistré avec la narration "Rien d'inquiétant."
 
   Scénario: Une action risquée déclenche un test réussi
-    Étant donné que l'arbitre exige un test de difficulté 12
+    Étant donné que l'arbitre exige un test de CON de difficulté 12
     Et que le dé donne 14
     Quand "p1" joue l'action "je force la porte"
     Alors le narrateur reçoit le résultat "réussite"
 
   Scénario: Une action risquée déclenche un test raté
-    Étant donné que l'arbitre exige un test de difficulté 12
+    Étant donné que l'arbitre exige un test de CON de difficulté 12
     Et que le dé donne 5
     Quand "p1" joue l'action "je force la porte"
     Alors le narrateur reçoit le résultat "échec"

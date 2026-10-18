@@ -20,5 +20,6 @@ Une décision est **Acceptée** uniquement si l'utilisateur l'a prise explicitem
 | [0012](0012-iac-github-opentofu.md) | IaC GitHub avec OpenTofu | Accepté |
 | [0013](0013-ai-factory.md) | Agents canoniques synchronisés multi-outils | Proposé |
 | [0014](0014-pas-de-llm-en-ci.md) | Pas de LLM en CI | Accepté |
+| [0015](0015-regles-maison-creation-personnage.md) | Règles maison de création de personnage (amende 0008) | Proposé |
 
 Nouveau : copier `0000-template.md`.

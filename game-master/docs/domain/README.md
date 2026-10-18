@@ -8,7 +8,7 @@ Dérivé des seules décisions connues : JdR multijoueur, règles SRD 5.1, Game 
 | **Play** (Session) | Cœur | Parties, joueurs, tours, historique | Partiel (`GameSession`) |
 | **Game Master** | Cœur | Orchestration des agents IA (arbitre, narrateur…) autour d'un tour | Partiel (`PlayTurn`, 2 agents) |
 | **Rules** | Support | Règles SRD 5.1 pures et déterministes (jets, tests, plus tard combat) | Partiel (test de caractéristique) |
-| **Characters** | Support | Fiches de personnage SRD | Non — ❓ périmètre |
+| **Characters** | Support | Fiches de personnage SRD (6 caractéristiques, tableau standard) | Partiel (spec 002) |
 | **Campaign** | Support | Scénario, scènes, faits du monde | Non — ❓ |
 | **Identity / Lobby** | Générique | Joueurs, salles | Non — ❓ |
 
@@ -25,12 +25,14 @@ Game Master ──(ACL)──▶ LLM externe (Ollama / tier gratuit) via LlmPort
 
 ## Agrégats (contexte Play, état actuel)
 - **GameSession** (racine) — invariants : ≥ 1 joueur ; seul un joueur de la partie agit ; action non vide ; tours numérotés séquentiellement. Contient des `Turn` (VO immuables).
+- **Character** (racine, contexte Characters) — invariants : nom non vide ; exactement 6 caractéristiques obtenues par répartition du tableau standard (15,14,13,12,10,8, chaque valeur une fois) ; rattaché à `SessionId` + `PlayerId` par identifiant. Unicité joueur/partie : vérifiée par le cas d'usage `CreateCharacter` via `CharacterRepository` (règle inter-agrégats).
 - Références entre agrégats par identifiant uniquement.
 
 ## Objets-valeur et services de domaine (Rules)
 - `AbilityScore` (1..30, modificateur `floor((v-10)/2)`), `AbilityCheckResult`.
 - Service : `resolveAbilityCheck(score, DD, DiceRoller)` — d20 + modificateur ≥ DD.
-- Port de domaine : `DiceRoller`, `SessionRepository`.
+- `Ability` (STR, DEX, CON, INT, WIS, CHA), `AbilityScores` (VO : 6 `AbilityScore`, fabrique `fromStandardArray`).
+- Ports de domaine : `DiceRoller`, `SessionRepository`, `CharacterRepository`.
 
 ## Agents du Game Master (couche application)
 | Agent runtime | Rôle | Sortie |
@@ -49,7 +51,11 @@ Game Master ──(ACL)──▶ LLM externe (Ollama / tier gratuit) via LlmPort
 | Test de caractéristique | `AbilityCheck` | d20 + modificateur contre un DD |
 | DD (degré de difficulté) | `difficultyClass` | Seuil à atteindre |
 | Modificateur | `modifier` | `floor((valeur-10)/2)` |
-| Arbitre | `RulesArbiterAgent` | Agent qui traduit une action en exigence de règles |
+| Personnage | `Character` | Avatar d'un joueur dans une partie |
+| Caractéristique | `Ability` | Force (STR), Dextérité (DEX), Constitution (CON), Intelligence (INT), Sagesse (WIS), Charisme (CHA) |
+| Fiche de personnage | `Character` + `AbilityScores` | Nom et six caractéristiques |
+| Tableau standard | `STANDARD_ARRAY` | Valeurs 15, 14, 13, 12, 10, 8 à répartir une fois chacune |
+| Arbitre | `RulesArbiterAgent` | Agent qui traduit une action en exigence de règles (DD + caractéristique) |
 | Narrateur | `NarratorAgent` | Agent qui raconte le résultat |
 
 Maintenu par l'agent `ddd-modeler`. Tout nouveau terme y entre **avant** le code.

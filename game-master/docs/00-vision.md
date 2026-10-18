@@ -7,10 +7,13 @@
 ## Décisions utilisateur (2026-10-10)
 Stack TypeScript full-stack · Cloudflare gratuit · LLM derrière un port (Ollama + tier gratuit) · orchestration maison · SRD 5.1 · Spec Kit officiel · docs en français · IaC GitHub OpenTofu (état R2) · pas de LLM en CI.
 
+## Décisions utilisateur (2026-10-10, validées sur proposition)
+1. LLM tier gratuit : Groq via API compatible OpenAI (quotas à vérifier avant l'adaptateur).
+2. SRD v1 : fiche de personnage (6 caractéristiques), test de caractéristique, PV. Combat, sorts, classes en v2.
+3. Joueurs : pseudo sans compte, rejoindre par code de partie.
+4. Front : React + Vite sur Cloudflare Pages, interface de chat.
+
 ## Questions ouvertes (à trancher, ne pas deviner)
-1. Quel fournisseur « tier gratuit » pour l'adaptateur LLM (Gemini, Groq, OpenRouter…) ?
-2. Périmètre SRD de la v1 (création de personnage ? combat ? sorts ?) — seul le test de caractéristique est implémenté.
-3. Identité des joueurs/lobby : anonyme, pseudo, ou compte ?
-4. Front web : React/Vite confirmé ? Interface de chat seule ou plateau ?
-5. Modèles par outil (Copilot, Codex, Gemini) : `factory/models.json` à renseigner.
-6. Attribution CC-BY-4.0 du SRD : texte exact à valider (ADR-0008).
+- Modèles par outil (Copilot, Codex, Gemini) : `factory/models.json` à renseigner.
+- Attribution CC-BY-4.0 du SRD : texte exact à valider (ADR-0008).
+- Voir « À clarifier » de chaque spec.
