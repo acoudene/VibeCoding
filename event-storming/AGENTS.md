@@ -28,7 +28,7 @@ Si une information métier, technique ou de périmètre manque ou est ambiguë :
 | Constitution Spec Kit | `.specify/memory/constitution.md` |
 | Agents, effort, workflows | `docs/factory/`, `factory/` |
 | Git, PR, CI | `docs/guidelines/git-and-pr.md` |
-| Observation de Miro (REA) | `docs/research/` (sous-projet 001), ADR-0015 |
+| Observation de Miro (REA), UX retenue | `docs/research/miro-observation.md`, ADR-0015, ADR-0016 |
 
 ## Commandes
 `npm run verify` = typecheck + tests unitaires + BDD + règles d'architecture + cohérence des fichiers d'agents. Doit être vert avant toute PR.
