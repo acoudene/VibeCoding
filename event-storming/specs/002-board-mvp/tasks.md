@@ -16,8 +16,8 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T016 [domaine] Tests rouges puis `duplicate` (copie à `STICKY_SIZE.height + DUPLICATE_GAP` dessous) et `paste` (fragment recentré au pointeur, liens internes copiés, nouveaux identifiants via `IdGenerator`) (`board.ts`)
 
 ## Application
-- [ ] T020 [application] Ports `BoardStore`, `BoardHistory`, `BoardGateway`, `RecentBoards`, `Clock` ; adaptateurs mémoire pour la BDD (`src/application/ports/*`, `src/infrastructure/memory/*`)
-- [ ] T021 [application] Steps BDD + cas d'usage `CreateBoard`, `OpenBoard`, `RenameBoard`, `ListRecentBoards`, `ForgetRecentBoard` ; retirer `@wip` de `creation-tableau.feature`
+- [x] T020 [application] Ports `BoardStore`, `BoardHistory`, `BoardGateway`, `RecentBoards`, `Clock` ; adaptateurs mémoire pour la BDD (`src/application/ports/*`, `src/infrastructure/memory/*`)
+- [x] T021 [application] Steps BDD + cas d'usage `CreateBoard`, `OpenBoard`, `RenameBoard`, `ListRecentBoards`, `ForgetRecentBoard` ; retirer `@wip` de `creation-tableau.feature`
 - [ ] T022 [application] Steps BDD + `PlaceSticky`, `EditSticky`, `MoveSticky`, `DeleteSelection` ; retirer `@wip` de `post-its.feature`
 - [ ] T023 [application] Steps BDD + `LinkStickies`, `EditLink` (inverser, supprimer) ; retirer `@wip` de `liens.feature`
 - [ ] T024 [application] Steps BDD + `DrawFrame`, `EditFrame` (renommer, redimensionner, déplacer, supprimer) ; retirer `@wip` de `cadres.feature`

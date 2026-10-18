@@ -1,5 +1,4 @@
 # language: fr
-@wip
 Fonctionnalité: Création et ouverture d'un tableau
   Un animateur crée un tableau, le retrouve par son URL et dans la liste des tableaux récents de son navigateur.
   (spec 002 : FR-001, FR-002, FR-005, FR-006)
