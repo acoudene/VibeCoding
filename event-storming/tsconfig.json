@@ -7,8 +7,20 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noEmit": true,
+    "jsx": "react-jsx",
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src", "tests"]
+  "include": [
+    "src",
+    "tests"
+  ],
+  "exclude": [
+    "src/main.web.tsx",
+    "src/presentation/web",
+    "tests/workers",
+    "tests/e2e"
+  ]
 }

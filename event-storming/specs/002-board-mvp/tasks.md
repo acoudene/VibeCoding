@@ -3,8 +3,8 @@
 Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = parallélisable. Ordre : tests rouges avant implémentation. Un scénario BDD perd son tag `@wip` dans la tâche qui l'implémente ; `npm run verify` vert à la fin de chaque couche.
 
 ## Outillage
-- [ ] T001 [outillage] Dépendances (plan, « Contrats externes »), `tsconfig.web.json` (DOM, JSX), `vite.config.ts`, `index.html`, `wrangler.toml` (Durable Object `BOARD`), scripts `dev`, `build`, `test:e2e`, `test:workers` ; `verify` inchangé + `test:workers` (`package.json`)
-- [ ] T002 [outillage] Racines `src/main.*` autorisées par `.dependency-cruiser.cjs` ; fixture d'architecture : la présentation ne peut pas importer `src/infrastructure` (`tests/fixtures/architecture`, `tests/unit/architecture/dependency-rules.test.ts`)
+- [x] T001 [outillage] Dépendances (plan, « Contrats externes »), `tsconfig.web.json` (DOM, JSX), `vite.config.ts`, `index.html`, `wrangler.toml` (Durable Object `BOARD`), scripts `dev`, `build`, `test:e2e`, `test:workers` ; `verify` inchangé + `test:workers` (`package.json`)
+- [x] T002 [outillage] Racines `src/main.*` autorisées par `.dependency-cruiser.cjs` ; fixture d'architecture : la présentation ne peut pas importer `src/infrastructure` (`tests/fixtures/architecture`, `tests/unit/architecture/dependency-rules.test.ts`)
 
 ## Domaine
 - [ ] T010 [P] [domaine] Tests rouges puis VO `BoardName` (défaut, refus du vide), `Position`, `Rect` (`board-name.ts`, `geometry.ts`)

@@ -30,10 +30,17 @@ module.exports = {
     },
     {
       name: "presentation-not-infrastructure",
-      comment: "Seule la racine de composition (src/main.ts) câble l'infrastructure.",
+      comment: "Seules les racines de composition (src/main.worker.ts, src/main.web.tsx) câblent l'infrastructure.",
       severity: "error",
       from: { path: "^src/presentation" },
       to: { path: "^src/(infrastructure|main)" },
+    },
+    {
+      name: "infrastructure-only-from-composition-roots",
+      comment: "Seules les racines de composition (src/main.worker.ts, src/main.web.tsx) et l'infrastructure elle-même importent l'infrastructure.",
+      severity: "error",
+      from: { path: "^src", pathNot: "^src/(infrastructure/|main\\.(worker\\.ts|web\\.tsx)$)" },
+      to: { path: "^src/infrastructure" },
     },
     { name: "no-circular", severity: "error", from: {}, to: { circular: true } },
   ],
