@@ -26,9 +26,9 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 ## Infrastructure
 - [x] T030 [P] [infrastructure] Tests rouges puis `YjsBoardStore` : `Y.Doc` ⇄ `Board` (schéma du plan), application des `BoardChange` en transactions d'origine locale ; aller-retour sans perte (`src/infrastructure/yjs/*`)
 - [x] T031 [infrastructure] Tests rouges puis `YjsBoardHistory` (`Y.UndoManager` limité à l'origine locale, une action = une étape)
-- [ ] T032 [P] [infrastructure] Tests rouges puis `LocalStorageRecentBoards` (tri, retrait, stockage indisponible ⇒ liste vide sans erreur)
-- [ ] T033 [P] [infrastructure] Tests rouges puis `CryptoIdGenerator` (128 bits, base64url), `SystemClock`
-- [ ] T034 [infrastructure] Tests Miniflare rouges puis `BoardDurableObject` (création, état initial, fusion des mises à jour, 404, 413, 400) (`tests/workers/board-durable-object.test.ts`)
+- [x] T032 [P] [infrastructure] Tests rouges puis `LocalStorageRecentBoards` (tri, retrait, stockage indisponible ⇒ liste vide sans erreur)
+- [x] T033 [P] [infrastructure] Tests rouges puis `CryptoIdGenerator` (128 bits, base64url), `SystemClock`
+- [x] T034 [infrastructure] Tests Miniflare rouges puis `BoardDurableObject` (création, état initial, fusion des mises à jour, 404, 413, 400) (`tests/workers/board-durable-object.test.ts`)
 - [ ] T035 [infrastructure] Tests rouges puis `HttpBoardGateway` (regroupement 500 ms, nouvel essai avec attente croissante, état Enregistré / Enregistrement… / Hors ligne, `sendBeacon` à la fermeture)
 
 ## Présentation

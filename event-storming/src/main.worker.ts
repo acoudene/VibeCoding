@@ -1,5 +1,5 @@
-/** Racine de composition du Worker (ADR-0017) : câblera Hono et le Durable Object. */
-export class BoardDurableObject {}
+/** Racine de composition du Worker (ADR-0017) : câblera Hono (U11) et le Durable Object. */
+export { BoardDurableObject } from "./infrastructure/cloudflare/board-durable-object";
 
 export default {
   fetch(): Response {

@@ -19,6 +19,8 @@
   ],
   "exclude": [
     "src/main.web.tsx",
+    "src/main.worker.ts",
+    "src/infrastructure/cloudflare",
     "src/presentation/web",
     "tests/workers",
     "tests/e2e"

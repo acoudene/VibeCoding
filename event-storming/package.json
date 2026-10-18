@@ -12,7 +12,7 @@
     "test:arch": "depcruise src --config .dependency-cruiser.cjs",
     "factory:sync": "node scripts/sync-factory.mjs",
     "factory:check": "node scripts/sync-factory.mjs --check",
-    "verify": "npm run typecheck && npm test && npm run test:bdd && npm run test:arch && npm run factory:check",
+    "verify": "npm run typecheck && npm test && npm run test:workers && npm run test:bdd && npm run test:arch && npm run factory:check",
     "dev": "vite",
     "build": "vite build && tsc --noEmit -p tsconfig.web.json"
   },
