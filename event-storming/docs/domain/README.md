@@ -35,6 +35,7 @@ Modeling ──(ACL)──▶ LLM externe (Ollama / tier gratuit / Claude option
 ## Objets-valeur et services de domaine
 - `Sticky` (`id`, `kind`, `label` FR, `identifier` EN optionnel, `position`, `notes`), `Link` (`id`, `sourceId`, `targetId` ; `outOfGrammar` dérivé), `Frame` (`id`, `name`, rectangle).
 - `BoardId` (identifiant non devinable), `BoardName` (texte non vide après suppression des espaces ; défaut « Tableau sans titre »), `Position` (`x`, `y`), `Rect` (`x`, `y`, `width`, `height` > 0).
+- `BoardFragment` : fragment copié — post-its (type, texte, identifiant, notes, position relative au centre de la boîte englobante) et liens internes à la sélection ; collé par `paste(fragment, at)` avec de nouveaux identifiants.
 - `BoardChange` : modification élémentaire du tableau (`StickyAdded`, `StickyUpdated`, `StickyRemoved`, `LinkAdded`, `LinkReversed`, `LinkRemoved`, `FrameAdded`, `FrameUpdated`, `FrameRemoved`, `BoardRenamed`). C'est l'unité appliquée au stockage et à l'historique (annuler/rétablir).
 - Services (Board) : `classifyLink(source, target): "inGrammar" | "outOfGrammar"`, `frameOf(sticky, frames)`, `nextFrameName(frames)` (« Contexte N », N = nombre de cadres + 1).
 - `StickyKind`, `StickyColor` (implémentés).
@@ -57,6 +58,7 @@ Modeling ──(ACL)──▶ LLM externe (Ollama / tier gratuit / Claude option
 | Tableaux récents | `RecentBoards` | Tableaux déjà ouverts dans ce navigateur (nom, dernière ouverture) |
 | Lien | `Link` | Relation orientée entre deux post-its |
 | Cadre | `Frame` | Zone délimitant un contexte borné |
+| Fragment copié | `BoardFragment` | Post-its et liens internes copiés, prêts à être collés ailleurs sur le tableau |
 | Instantané | `BoardSnapshot` | Copie immuable du tableau à un instant donné |
 | Modèle de domaine | `DomainModel` | Résultat DDD dérivé d'un instantané |
 | Anomalie | `Anomaly` | Incohérence détectée, rattachée à des post-its |

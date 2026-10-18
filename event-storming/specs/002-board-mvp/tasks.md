@@ -12,8 +12,8 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T012 [P] [domaine] Tests rouges puis `frameOf` (centre, cadres imbriqués → plus petit, aucun cadre) et `nextFrameName` (`frame.ts`)
 - [x] T013 [domaine] Tests rouges puis `Board` : création, `rename`, `addSticky`, `updateSticky`, `moveSticky`, `removeStickies` (cascade), avec leurs `BoardChange` (`board.ts`, `board-change.ts`, `sticky.ts`, `errors.ts`)
 - [x] T014 [domaine] Tests rouges puis liens : `addLink` (refus boucle, post-it inconnu), `reverseLink`, `removeLink`, `outOfGrammar` dérivé et requalifié au changement de type (`board.ts`, `link.ts`)
-- [ ] T015 [domaine] Tests rouges puis cadres : `addFrame`, `updateFrame`, `moveFrame` (entraîne les membres), `removeFrame` (`board.ts`)
-- [ ] T016 [domaine] Tests rouges puis `duplicate` (copie à `STICKY_SIZE.height + DUPLICATE_GAP` dessous) et `paste` (fragment recentré au pointeur, liens internes copiés, nouveaux identifiants via `IdGenerator`) (`board.ts`)
+- [x] T015 [domaine] Tests rouges puis cadres : `addFrame`, `updateFrame`, `moveFrame` (entraîne les membres), `removeFrame` (`board.ts`)
+- [x] T016 [domaine] Tests rouges puis `duplicate` (copie à `STICKY_SIZE.height + DUPLICATE_GAP` dessous) et `paste` (fragment recentré au pointeur, liens internes copiés, nouveaux identifiants via `IdGenerator`) (`board.ts`)
 
 ## Application
 - [ ] T020 [application] Ports `BoardStore`, `BoardHistory`, `BoardGateway`, `RecentBoards`, `Clock` ; adaptateurs mémoire pour la BDD (`src/application/ports/*`, `src/infrastructure/memory/*`)

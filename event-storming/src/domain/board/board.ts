@@ -1,12 +1,19 @@
 import type { BoardChange } from "./board-change";
 import { DEFAULT_BOARD_NAME, boardName, type BoardName } from "./board-name";
-import { EmptyBoardIdError, SelfLinkError, UnknownLinkError, UnknownStickyError } from "./errors";
-import type { Frame } from "./frame";
-import type { Position } from "./geometry";
+import {
+  EmptyBoardIdError,
+  EmptyFrameNameError,
+  SelfLinkError,
+  UnknownFrameError,
+  UnknownLinkError,
+  UnknownStickyError,
+} from "./errors";
+import { frameOf, nextFrameName, type Frame } from "./frame";
+import { rect as makeRect, type Position, type Rect } from "./geometry";
 import { classifyLink } from "./grammar";
 import type { IdGenerator } from "./id-generator";
 import type { Link } from "./link";
-import { makeSticky, type Sticky, type StickyDraft, type StickyPatch } from "./sticky";
+import { STICKY_SIZE, makeSticky, stickyCenter, type Sticky, type StickyDraft, type StickyPatch } from "./sticky";
 
 declare const boardIdBrand: unique symbol;
 /** Identifiant de tableau (non vide ; le format est validé à la frontière de l'API). */
@@ -19,6 +26,33 @@ function isBoardId(raw: string): raw is BoardId {
 export function boardId(raw: string): BoardId {
   if (!isBoardId(raw)) throw new EmptyBoardIdError();
   return raw;
+}
+
+/** Écart vertical entre un post-it et sa copie (en plus de la hauteur d'un post-it). */
+export const DUPLICATE_GAP = 20;
+
+/** Modification partielle d'un cadre. */
+export interface FramePatch {
+  readonly name?: string;
+  readonly rect?: Rect;
+}
+
+/** Fragment copié : post-its (positions relatives au centre de la boîte englobante) et liens internes. */
+export interface BoardFragment {
+  readonly stickies: readonly {
+    readonly kind: Sticky["kind"];
+    readonly label: string;
+    readonly identifier?: string;
+    readonly notes: string;
+    readonly offset: Position;
+  }[];
+  /** Liens dont les deux extrémités sont dans le fragment, par indice dans `stickies`. */
+  readonly links: readonly { readonly sourceIndex: number; readonly targetIndex: number }[];
+}
+
+/** Résultat d'une création de post-its (dupliquer, coller). */
+export interface BoardCreationResult extends BoardResult {
+  readonly createdIds: string[];
 }
 
 /** État complet d'un tableau, tel que reconstitué depuis un stockage. */
@@ -155,6 +189,111 @@ export class Board {
     return this.with({ links: this.state.links.filter((l) => l.id !== id) }, [{ type: "LinkRemoved", linkId: id }]);
   }
 
+  addFrame(frameRect: Rect, idGenerator: IdGenerator): BoardResult {
+    const rect = makeRect(frameRect.x, frameRect.y, frameRect.width, frameRect.height);
+    const frame: Frame = { id: idGenerator.next(), name: nextFrameName(this.state.frames), rect };
+    return this.with({ frames: [...this.state.frames, frame] }, [{ type: "FrameAdded", frame }]);
+  }
+
+  updateFrame(id: string, patch: FramePatch): BoardResult {
+    const current = this.requireFrame(id);
+    const name = patch.name === undefined ? current.name : patch.name.trim();
+    if (name === "") throw new EmptyFrameNameError();
+    const rect = patch.rect === undefined ? current.rect : makeRect(patch.rect.x, patch.rect.y, patch.rect.width, patch.rect.height);
+    if (name === current.name && sameRect(rect, current.rect)) return this.unchanged();
+    const frame: Frame = { id, name, rect };
+    return this.with({ frames: this.state.frames.map((f) => (f.id === id ? frame : f)) }, [{ type: "FrameUpdated", frame }]);
+  }
+
+  /** Déplace le cadre et les post-its qui lui appartenaient avant le déplacement. */
+  moveFrame(id: string, dx: number, dy: number): BoardResult {
+    const current = this.requireFrame(id);
+    if (dx === 0 && dy === 0) return this.unchanged();
+    const frame: Frame = { ...current, rect: { ...current.rect, x: current.rect.x + dx, y: current.rect.y + dy } };
+    const members = this.state.stickies.filter((s) => frameOf(stickyCenter(s), this.state.frames)?.id === id);
+    const moved = members.map((s): Sticky => ({ ...s, position: { x: s.position.x + dx, y: s.position.y + dy } }));
+    const movedById = new Map(moved.map((s) => [s.id, s]));
+    return this.with(
+      {
+        frames: this.state.frames.map((f) => (f.id === id ? frame : f)),
+        stickies: this.state.stickies.map((s) => movedById.get(s.id) ?? s),
+      },
+      [{ type: "FrameUpdated", frame }, ...moved.map((sticky): BoardChange => ({ type: "StickyUpdated", sticky }))],
+    );
+  }
+
+  /** Supprime le cadre ; les post-its qu'il contenait restent sur le tableau. */
+  removeFrame(id: string): BoardResult {
+    this.requireFrame(id);
+    return this.with({ frames: this.state.frames.filter((f) => f.id !== id) }, [{ type: "FrameRemoved", frameId: id }]);
+  }
+
+  /** Copie les post-its (et leurs liens internes) sous les originaux, décalés de STICKY_SIZE.height + DUPLICATE_GAP. */
+  duplicate(stickyIds: readonly string[], idGenerator: IdGenerator): BoardCreationResult {
+    const selected = this.requireStickies(stickyIds);
+    if (selected.length === 0) return { board: this, changes: [], createdIds: [] };
+    const center = boundingCenter(selected);
+    return this.paste(this.copy(stickyIds), { x: center.x, y: center.y + STICKY_SIZE.height + DUPLICATE_GAP }, idGenerator);
+  }
+
+  /** Fragment des post-its sélectionnés ; indépendant du tableau (survit à la suppression des originaux). */
+  copy(stickyIds: readonly string[]): BoardFragment {
+    const selected = this.requireStickies(stickyIds);
+    if (selected.length === 0) return { stickies: [], links: [] };
+    const center = boundingCenter(selected);
+    const indexOf = new Map(selected.map((s, i) => [s.id, i]));
+    return {
+      stickies: selected.map((s) => ({
+        kind: s.kind,
+        label: s.label,
+        ...(s.identifier === undefined ? {} : { identifier: s.identifier }),
+        notes: s.notes,
+        offset: { x: s.position.x - center.x, y: s.position.y - center.y },
+      })),
+      links: this.state.links.flatMap((l) => {
+        const sourceIndex = indexOf.get(l.sourceId);
+        const targetIndex = indexOf.get(l.targetId);
+        return sourceIndex === undefined || targetIndex === undefined ? [] : [{ sourceIndex, targetIndex }];
+      }),
+    };
+  }
+
+  /** Colle le fragment centré sur `at`, avec de nouveaux identifiants. */
+  paste(fragment: BoardFragment, at: Position, idGenerator: IdGenerator): BoardCreationResult {
+    const created = fragment.stickies.map((f) =>
+      makeSticky({
+        id: idGenerator.next(),
+        kind: f.kind,
+        label: f.label,
+        identifier: f.identifier,
+        notes: f.notes,
+        position: { x: at.x + f.offset.x, y: at.y + f.offset.y },
+      }),
+    );
+    const links = fragment.links.flatMap((l) => {
+      const source = created[l.sourceIndex];
+      const target = created[l.targetIndex];
+      return source === undefined || target === undefined ? [] : [{ id: idGenerator.next(), sourceId: source.id, targetId: target.id }];
+    });
+    if (created.length === 0) return { board: this, changes: [], createdIds: [] };
+    const changes: BoardChange[] = [
+      ...created.map((sticky): BoardChange => ({ type: "StickyAdded", sticky })),
+      ...links.map((link): BoardChange => ({ type: "LinkAdded", link })),
+    ];
+    const result = this.with({ stickies: [...this.state.stickies, ...created], links: [...this.state.links, ...links] }, changes);
+    return { ...result, createdIds: created.map((s) => s.id) };
+  }
+
+  private requireStickies(ids: readonly string[]): Sticky[] {
+    return [...new Set(ids)].map((id) => this.requireSticky(id));
+  }
+
+  private requireFrame(id: string): Frame {
+    const frame = this.state.frames.find((f) => f.id === id);
+    if (frame === undefined) throw new UnknownFrameError(id);
+    return frame;
+  }
+
   private requireSticky(id: string): Sticky {
     const sticky = this.sticky(id);
     if (sticky === undefined) throw new UnknownStickyError(id);
@@ -182,6 +321,20 @@ export class Board {
   private unchanged(): BoardResult {
     return { board: this, changes: [] };
   }
+}
+
+/** Centre de la boîte englobante des rectangles des post-its. */
+function boundingCenter(stickies: readonly Sticky[]): Position {
+  const xs = stickies.map((s) => s.position.x);
+  const ys = stickies.map((s) => s.position.y);
+  return {
+    x: (Math.min(...xs) + Math.max(...xs) + STICKY_SIZE.width) / 2,
+    y: (Math.min(...ys) + Math.max(...ys) + STICKY_SIZE.height) / 2,
+  };
+}
+
+function sameRect(a: Rect, b: Rect): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 }
 
 function sameSticky(a: Sticky, b: Sticky): boolean {

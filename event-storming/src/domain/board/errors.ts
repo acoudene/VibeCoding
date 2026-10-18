@@ -40,3 +40,17 @@ export class UnknownLinkError extends Error {
     this.name = "UnknownLinkError";
   }
 }
+
+export class UnknownFrameError extends Error {
+  constructor(readonly frameId: string) {
+    super(`Cadre inconnu : ${frameId}`);
+    this.name = "UnknownFrameError";
+  }
+}
+
+export class EmptyFrameNameError extends Error {
+  constructor() {
+    super("Le nom du cadre est obligatoire");
+    this.name = "EmptyFrameNameError";
+  }
+}
