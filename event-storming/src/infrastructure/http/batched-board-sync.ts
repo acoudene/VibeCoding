@@ -56,16 +56,18 @@ export class BatchedBoardSync implements BoardSync {
     return () => this.listeners.delete(listener);
   }
 
+  /**
+   * Confie au navigateur, sans attendre, tout ce qui n'est pas confirmé (y compris l'envoi en cours et, en état
+   * `error`, en dernière chance). `sendBeacon` ne garantit que la mise en file — hors ligne, charge > 64 Kio ou refus
+   * du serveur restent possibles — : rien n'est tenu pour enregistré, l'état et les envois prévus sont inchangés
+   * (la fusion côté serveur est idempotente, renvoyer est sans effet).
+   */
   flushWithBeacon(): void {
     const { sendBeacon, beaconUrl } = this.options;
     const unsent = this.inFlight ? [this.inFlight, ...this.pending] : [...this.pending];
-    if (this.stopped || this.current === "error" || !sendBeacon || unsent.length === 0) return;
-    // Fusion idempotente côté serveur : renvoyer l'envoi en cours est sans effet s'il a abouti.
+    if (this.stopped || !sendBeacon || unsent.length === 0) return;
     const payload = Y.mergeUpdates(unsent);
-    if (!sendBeacon(beaconUrl, new Blob([new Uint8Array(payload)], { type: "application/octet-stream" }))) return;
-    this.pending.length = 0;
-    this.clearTimer();
-    if (!this.inFlight) this.setStatus("saved");
+    sendBeacon(beaconUrl, new Blob([new Uint8Array(payload)], { type: "application/octet-stream" }));
   }
 
   stop(): void {

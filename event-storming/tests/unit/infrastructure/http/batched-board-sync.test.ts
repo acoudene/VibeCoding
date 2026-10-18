@@ -169,7 +169,7 @@ describe("BatchedBoardSync", () => {
     expect(g.sent).toHaveLength(5);
   });
 
-  it("flushWithBeacon envoie ce qui reste via sendBeacon et considère l'état enregistré", () => {
+  it("flushWithBeacon confie ce qui reste à sendBeacon sans le considérer enregistré : la page restée ouverte l'envoie encore", async () => {
     const beacon = vi.fn((_url: string, _data: Blob) => true);
     const { source, g, sync } = setup(beacon);
     source.edit();
@@ -179,9 +179,26 @@ describe("BatchedBoardSync", () => {
     const [url, blob] = beacon.mock.calls[0] as [string, Blob];
     expect(url).toBe("/api/boards/b-1/updates");
     expect(blob.type).toBe("application/octet-stream");
+    // sendBeacon ne garantit que la mise en file (hors ligne, refus serveur) : rien n'est tenu pour enregistré.
+    expect(sync.status()).toBe("saving");
+    await vi.advanceTimersByTimeAsync(500);
+    expect(g.sent).toHaveLength(1);
+    expect(size(g.sent)).toBe(2);
+    await g.settle(0, "ok");
     expect(sync.status()).toBe("saved");
-    vi.advanceTimersByTime(5000);
-    expect(g.sent).toHaveLength(0);
+  });
+
+  it("flushWithBeacon hors ligne laisse l'état « Hors ligne » et les nouveaux essais prévus", async () => {
+    const beacon = vi.fn((_url: string, _data: Blob) => true);
+    const { source, g, sync } = setup(beacon);
+    source.edit();
+    await vi.advanceTimersByTimeAsync(500);
+    await g.settle(0, "fail");
+    sync.flushWithBeacon();
+    expect(beacon).toHaveBeenCalledOnce();
+    expect(sync.status()).toBe("offline");
+    await vi.advanceTimersByTimeAsync(500);
+    expect(g.sent).toHaveLength(2);
   });
 
   it("flushWithBeacon garde l'attente si sendBeacon refuse", async () => {
@@ -271,8 +288,13 @@ describe("BatchedBoardSync", () => {
       await vi.advanceTimersByTimeAsync(60_000);
       expect(g.sent).toHaveLength(1);
       expect(sync.status()).toBe("error");
+      // Dernière chance à la fermeture (le serveur peut encore refuser) : l'état reste « Erreur ».
       sync.flushWithBeacon();
-      expect(beacon).not.toHaveBeenCalled();
+      expect(beacon).toHaveBeenCalledOnce();
+      const blob = beacon.mock.calls[0]?.[1];
+      expect(blob).toBeInstanceOf(Blob);
+      if (blob) expect(size([new Uint8Array(await blob.arrayBuffer())])).toBe(2);
+      expect(sync.status()).toBe("error");
     });
   });
 });

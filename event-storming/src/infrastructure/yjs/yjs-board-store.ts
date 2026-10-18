@@ -2,7 +2,7 @@ import * as Y from "yjs";
 import type { BoardHistory } from "../../application/ports/board-history";
 import {
   NoOpenBoardError,
-  type BoardSnapshot,
+  type BoardEncodedState,
   type BoardStore,
   type BoardUpdate,
   type Unsubscribe,
@@ -31,9 +31,9 @@ export class YjsBoardStore implements BoardStore, BoardHistory {
   private open: OpenBoard | undefined;
   private readonly listeners = new Set<(update: BoardUpdate) => void>();
 
-  load(id: BoardId, snapshot: BoardSnapshot): void {
+  load(id: BoardId, state: BoardEncodedState): void {
     const doc = new Y.Doc();
-    if (snapshot.length > 0) Y.applyUpdate(doc, snapshot);
+    if (state.length > 0) Y.applyUpdate(doc, state);
     this.close();
     const history = new YjsBoardHistory(doc);
     const open: OpenBoard = { id, doc, history, board: undefined };

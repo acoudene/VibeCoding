@@ -9,11 +9,21 @@ export type SyncStatus = "saved" | "saving" | "offline" | "error";
 
 /** Synchronisation, vers le serveur, des modifications locales du tableau ouvert. */
 export interface BoardSync {
-  /** « Enregistré » (rien en attente), « Enregistrement… » (envoi en cours ou prévu), « Hors ligne » (dernier envoi en échec). */
+  /**
+   * - `saved` « Enregistré » : rien en attente ;
+   * - `saving` « Enregistrement… » : envoi en cours ou prévu ;
+   * - `offline` « Hors ligne » : dernier envoi en échec transitoire, nouvel essai prévu ;
+   * - `error` « Erreur d'enregistrement » : refus définitif du serveur, plus aucun envoi automatique.
+   *
+   * Seul un envoi confirmé par le serveur ramène à `saved` (jamais `flushWithBeacon`).
+   */
   status(): SyncStatus;
   /** Notifié à chaque changement d'état ; jamais si l'état est inchangé. */
   onStatusChange(listener: (status: SyncStatus) => void): Unsubscribe;
-  /** À la fermeture de la page : tente d'envoyer ce qui reste en attente sans attendre. */
+  /**
+   * À la fermeture ou mise en arrière-plan de la page : confie au navigateur, sans attendre, tout ce qui n'est pas
+   * confirmé (y compris en `error`, en dernière chance). Au mieux : l'état et les envois prévus restent inchangés.
+   */
   flushWithBeacon(): void;
   /** Cesse d'écouter le tableau et abandonne les envois et nouveaux essais prévus. */
   stop(): void;
