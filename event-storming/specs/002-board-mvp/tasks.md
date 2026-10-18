@@ -32,8 +32,8 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T035 [infrastructure] Tests rouges puis `HttpBoardGateway` (regroupement 500 ms, nouvel essai avec attente croissante, état Enregistré / Enregistrement… / Hors ligne, `sendBeacon` à la fermeture)
 
 ## Présentation
-- [ ] T040 [présentation] API Hono `/api/boards` (validation des identifiants et des tailles, codes HTTP du plan) + `src/main.worker.ts`
-- [ ] T041 [présentation] Accueil : « Nouveau tableau », tableaux récents, retrait (`pages/Home.tsx`) + `src/main.web.tsx`
+- [x] T040 [présentation] API Hono `/api/boards` (validation des identifiants et des tailles, codes HTTP du plan) + `src/main.worker.ts`
+- [x] T041 [présentation] Accueil : « Nouveau tableau », tableaux récents, retrait (`pages/Home.tsx`) + `src/main.web.tsx`
 - [ ] T042 [présentation] Tableau : canvas xyflow, nœud post-it (couleur dérivée, taille fixe, texte en place, police automatique), palette des 9 types, légende (`pages/BoardPage.tsx`, `canvas/*`, `legend/*`)
 - [ ] T043 [présentation] Liens : 4 points de connexion, accroche au côté le plus proche, flèche, style et info-bulle hors grammaire (`canvas/*`)
 - [ ] T044 [présentation] Cadres : `F` + glisser, nom édité à la création, déplacement entraînant les membres, redimensionnement (`canvas/*`)
