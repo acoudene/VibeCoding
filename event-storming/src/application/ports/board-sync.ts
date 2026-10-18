@@ -1,7 +1,11 @@
 import type { Unsubscribe } from "./board-store";
 
-/** État de la synchronisation avec le serveur, tel qu'affiché par l'indicateur (FR-004). */
-export type SyncStatus = "saved" | "saving" | "offline";
+/** État de la synchronisation avec le serveur, tel qu'affiché par l'indicateur (FR-004).
+ *
+ * `error` : refus définitif du serveur (tableau introuvable, mise à jour refusée) ; plus aucun envoi n'est tenté,
+ * les modifications restent en mémoire. Libellé de l'interface : « Erreur d'enregistrement ».
+ */
+export type SyncStatus = "saved" | "saving" | "offline" | "error";
 
 /** Synchronisation, vers le serveur, des modifications locales du tableau ouvert. */
 export interface BoardSync {

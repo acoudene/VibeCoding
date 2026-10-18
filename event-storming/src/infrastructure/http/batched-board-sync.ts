@@ -1,11 +1,21 @@
 import * as Y from "yjs";
-import type { BoardGateway } from "../../application/ports/board-gateway";
+import { BoardNotFoundError, type BoardGateway } from "../../application/ports/board-gateway";
 import type { BoardStore, BoardUpdate, Unsubscribe } from "../../application/ports/board-store";
 import type { BoardSync, SyncStatus } from "../../application/ports/board-sync";
 import type { BoardId } from "../../domain/board/board";
+import { HttpBoardGatewayError } from "./http-board-gateway";
 
 export const BATCH_WINDOW_MS = 500;
 export const MAX_RETRY_DELAY_MS = 10_000;
+
+/** Échec qui peut se résoudre en réessayant : réseau, 5xx, 408, 429. Les autres refus sont définitifs. */
+function isTransient(error: unknown): boolean {
+  if (error instanceof BoardNotFoundError) return false;
+  if (error instanceof HttpBoardGatewayError) {
+    return error.status >= 500 || error.status === 408 || error.status === 429;
+  }
+  return true;
+}
 
 export interface BatchedBoardSyncOptions {
   boardId: BoardId;
@@ -49,10 +59,10 @@ export class BatchedBoardSync implements BoardSync {
   flushWithBeacon(): void {
     const { sendBeacon, beaconUrl } = this.options;
     const unsent = this.inFlight ? [this.inFlight, ...this.pending] : [...this.pending];
-    if (this.stopped || !sendBeacon || unsent.length === 0) return;
+    if (this.stopped || this.current === "error" || !sendBeacon || unsent.length === 0) return;
     // Fusion idempotente côté serveur : renvoyer l'envoi en cours est sans effet s'il a abouti.
     const payload = Y.mergeUpdates(unsent);
-    if (!sendBeacon(beaconUrl, new Blob([payload as BlobPart], { type: "application/octet-stream" }))) return;
+    if (!sendBeacon(beaconUrl, new Blob([new Uint8Array(payload)], { type: "application/octet-stream" }))) return;
     this.pending.length = 0;
     this.clearTimer();
     if (!this.inFlight) this.setStatus("saved");
@@ -67,6 +77,7 @@ export class BatchedBoardSync implements BoardSync {
   private enqueue(update: BoardUpdate): void {
     if (this.stopped) return;
     this.pending.push(update);
+    if (this.current === "error") return;
     if (this.current === "saved") this.setStatus("saving");
     if (this.timer === undefined && !this.inFlight) this.schedule(BATCH_WINDOW_MS);
   }
@@ -89,10 +100,14 @@ export class BatchedBoardSync implements BoardSync {
     this.inFlight = batch;
     try {
       await this.options.gateway.pushUpdate(this.options.boardId, batch);
-    } catch {
+    } catch (error) {
       this.inFlight = undefined;
       if (this.stopped) return;
       this.pending.unshift(batch);
+      if (!isTransient(error)) {
+        this.setStatus("error");
+        return;
+      }
       this.failures += 1;
       this.setStatus("offline");
       this.schedule(Math.min(BATCH_WINDOW_MS * 2 ** (this.failures - 1), MAX_RETRY_DELAY_MS));

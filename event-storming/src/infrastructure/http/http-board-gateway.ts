@@ -10,6 +10,10 @@ export class HttpBoardGatewayError extends Error {
   }
 }
 
+function hasStringId(body: unknown): body is { id: string } {
+  return typeof body === "object" && body !== null && "id" in body && typeof body.id === "string";
+}
+
 const OCTET_STREAM = "application/octet-stream";
 
 /** Appels HTTP vers l'API des tableaux ; `fetch` et l'URL de base sont injectés. */
@@ -23,9 +27,8 @@ export class HttpBoardGateway implements BoardGateway {
     const response = await this.fetchFn(`${this.baseUrl}/api/boards`, { method: "POST" });
     if (response.status !== 201) throw new HttpBoardGatewayError(response.status);
     const body: unknown = await response.json();
-    const id = typeof body === "object" && body !== null ? (body as { id?: unknown }).id : undefined;
-    if (typeof id !== "string") throw new HttpBoardGatewayError(response.status);
-    return boardId(id);
+    if (!hasStringId(body)) throw new HttpBoardGatewayError(response.status);
+    return boardId(body.id);
   }
 
   async open(id: BoardId): Promise<BoardSnapshot> {
@@ -39,7 +42,7 @@ export class HttpBoardGateway implements BoardGateway {
     const response = await this.fetchFn(`${this.boardUrl(id)}/updates`, {
       method: "POST",
       headers: { "Content-Type": OCTET_STREAM },
-      body: update as BodyInit,
+      body: new Uint8Array(update),
     });
     if (response.status === 404) throw new BoardNotFoundError(id);
     if (!response.ok) throw new HttpBoardGatewayError(response.status);

@@ -4,6 +4,8 @@ import type { BoardGateway } from "../../../../src/application/ports/board-gatew
 import type { BoardUpdate } from "../../../../src/application/ports/board-store";
 import type { SyncStatus } from "../../../../src/application/ports/board-sync";
 import { boardId } from "../../../../src/domain/board/board";
+import { BoardNotFoundError } from "../../../../src/application/ports/board-gateway";
+import { HttpBoardGatewayError } from "../../../../src/infrastructure/http/http-board-gateway";
 import { BatchedBoardSync } from "../../../../src/infrastructure/http/batched-board-sync";
 
 const id = boardId("b-1");
@@ -37,11 +39,11 @@ function controlledGateway() {
       return new Promise<void>((resolve, reject) => pending.push({ resolve, reject }));
     },
   };
-  const settle = async (i: number, outcome: "ok" | "fail") => {
+  const settle = async (i: number, outcome: "ok" | "fail", error: Error = new Error("offline")) => {
     const p = pending[i];
     if (!p) throw new Error(`no send #${i}`);
     if (outcome === "ok") p.resolve();
-    else p.reject(new Error("offline"));
+    else p.reject(error);
     await vi.advanceTimersByTimeAsync(0);
   };
   return { gateway, sent, settle };
@@ -225,5 +227,52 @@ describe("BatchedBoardSync", () => {
     off();
     source.edit();
     expect(seen).toEqual([]);
+  });
+
+  describe("échecs transitoires et refus définitifs", () => {
+    it.each([
+      ["réseau", new TypeError("network")],
+      ["408", new HttpBoardGatewayError(408)],
+      ["429", new HttpBoardGatewayError(429)],
+      ["500", new HttpBoardGatewayError(500)],
+      ["503", new HttpBoardGatewayError(503)],
+    ])("réessaie après un échec %s", async (_name, error) => {
+      const { source, g, sync } = setup();
+      source.edit();
+      await vi.advanceTimersByTimeAsync(500);
+      await g.settle(0, "fail", error);
+      expect(sync.status()).toBe("offline");
+      await vi.advanceTimersByTimeAsync(500);
+      expect(g.sent).toHaveLength(2);
+    });
+
+    it.each([
+      ["404", new BoardNotFoundError("b-1")],
+      ["400", new HttpBoardGatewayError(400)],
+      ["413", new HttpBoardGatewayError(413)],
+    ])("passe en erreur sans réessayer après un refus %s", async (_name, error) => {
+      const { source, g, sync, statuses } = setup();
+      source.edit();
+      await vi.advanceTimersByTimeAsync(500);
+      await g.settle(0, "fail", error);
+      expect(sync.status()).toBe("error");
+      expect(statuses).toEqual(["saving", "error"]);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(g.sent).toHaveLength(1);
+    });
+
+    it("garde les modifications suivantes en mémoire sans les envoyer", async () => {
+      const beacon = vi.fn((_url: string, _data: Blob) => true);
+      const { source, g, sync } = setup(beacon);
+      source.edit();
+      await vi.advanceTimersByTimeAsync(500);
+      await g.settle(0, "fail", new HttpBoardGatewayError(413));
+      source.edit();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(g.sent).toHaveLength(1);
+      expect(sync.status()).toBe("error");
+      sync.flushWithBeacon();
+      expect(beacon).not.toHaveBeenCalled();
+    });
   });
 });
