@@ -38,7 +38,7 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T043 [présentation] Liens : 4 points de connexion, accroche au côté le plus proche, flèche, style et info-bulle hors grammaire (`canvas/*`)
 - [x] T044 [présentation] Cadres : `F` + glisser, nom édité à la création, déplacement entraînant les membres, redimensionnement (`canvas/*`)
 - [x] T045 [présentation] Panneaux contextuels (post-it : type, identifiant EN, notes, supprimer ; lien : inverser, supprimer ; tableau : nom), indicateur d'enregistrement (`panels/*`)
-- [ ] T046 [présentation] Sélection, raccourcis (`Suppr`, `Ctrl+D`, `Ctrl+C`/`Ctrl+V`, `Ctrl+Z`/`Ctrl+Y`/`Ctrl+Maj+Z`), navigation (molette, `Espace`+glisser, paliers, ajuster), vue mémorisée (`hooks/*`)
+- [x] T046 [présentation] Sélection, raccourcis (`Suppr`, `Ctrl+D`, `Ctrl+C`/`Ctrl+V`, `Ctrl+Z`/`Ctrl+Y`/`Ctrl+Maj+Z`), navigation (molette, `Espace`+glisser, paliers, ajuster), vue mémorisée (`hooks/*`)
 
 ## Tests de bout en bout
 - [ ] T050 [e2e] `playwright.config.ts` (serveurs Vite + `wrangler dev`) ; scénarios de la colonne E2E du tableau « Couverture des exigences » du plan (`tests/e2e/*.spec.ts`)

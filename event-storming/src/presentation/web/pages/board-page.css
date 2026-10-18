@@ -17,3 +17,8 @@
 .board-page__header > * {
   margin: 0;
 }
+
+.history-buttons {
+  display: flex;
+  gap: 4px;
+}

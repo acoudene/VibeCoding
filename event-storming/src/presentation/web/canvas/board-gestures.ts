@@ -1,7 +1,7 @@
 import type { EditFrameCommand } from "../../../application/board/edit-frame";
 import type { EditStickyCommand } from "../../../application/board/edit-sticky";
 import type { LinkStickiesCommand, LinkStickiesResult } from "../../../application/board/link-stickies";
-import type { MoveStickyCommand } from "../../../application/board/move-sticky";
+import type { MoveElementsCommand } from "../../../application/board/move-elements";
 import type { Board } from "../../../domain/board/board";
 import { EmptyFrameNameError } from "../../../domain/board/errors";
 import type { Position } from "../../../domain/board/geometry";
@@ -41,30 +41,34 @@ export interface DraggedNode {
 }
 
 /**
- * Enregistre la fin d'un glissement : les cadres d'abord, déplacés de leur décalage (leurs membres suivent, par le
- * domaine), puis les post-its glissés à leur position finale (un membre glissé avec son cadre finit donc à sa place).
+ * Enregistre la fin d'un glissement en un seul déplacement groupé (une étape d'annulation) : les cadres par leur
+ * décalage (leurs membres suivent, par le domaine), les post-its glissés à leur position finale.
+ * Renvoie faux si un élément glissé a disparu entre-temps : la vue doit alors être recalculée depuis le tableau.
  */
 export function commitDrag(
-  deps: {
-    readonly board: Board;
-    readonly moveSticky: UseCase<MoveStickyCommand>;
-    readonly editFrame: UseCase<EditFrameCommand>;
-  },
+  deps: { readonly board: Board; readonly moveElements: UseCase<MoveElementsCommand> },
   dragged: readonly DraggedNode[],
-): void {
+): boolean {
+  let complete = true;
+  const frames: { id: string; dx: number; dy: number }[] = [];
+  const stickies: { id: string; to: Position }[] = [];
   for (const node of dragged) {
-    if (node.type !== "frame") continue;
-    const frame = deps.board.frames.find((f) => f.id === node.id);
-    if (frame === undefined) continue;
-    const dx = node.position.x - frame.rect.x;
-    const dy = node.position.y - frame.rect.y;
-    if (dx !== 0 || dy !== 0) deps.editFrame.execute({ frameId: node.id, action: "move", dx, dy });
-  }
-  for (const node of dragged) {
-    if (node.type === "sticky" && deps.board.sticky(node.id) !== undefined) {
-      deps.moveSticky.execute({ id: node.id, to: node.position });
+    if (node.type === "frame") {
+      const frame = deps.board.frames.find((f) => f.id === node.id);
+      if (frame === undefined) {
+        complete = false;
+        continue;
+      }
+      const dx = node.position.x - frame.rect.x;
+      const dy = node.position.y - frame.rect.y;
+      if (dx !== 0 || dy !== 0) frames.push({ id: node.id, dx, dy });
+    } else if (node.type === "sticky") {
+      if (deps.board.sticky(node.id) === undefined) complete = false;
+      else stickies.push({ id: node.id, to: node.position });
     }
   }
+  if (frames.length > 0 || stickies.length > 0) deps.moveElements.execute({ stickies, frames });
+  return complete;
 }
 
 /** Renomme un cadre ; un nom vide, refusé par le domaine, laisse l'ancien nom ; un cadre disparu est ignoré. */

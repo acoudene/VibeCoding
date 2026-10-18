@@ -37,6 +37,16 @@ describe("syncFrameNodes", () => {
     expect([renamed?.selected, renamed?.data.name]).toEqual([true, "Paiement"]);
   });
 
+  it("conserve l'état de vue du nœud (mesures, glissement) quand il est reconstruit", () => {
+    const [node] = syncFrameNodes([], makeBoard({ frames: [frame("f1")] }));
+    if (node === undefined) throw new Error("nœud attendu");
+    const viewed = { ...node, measured: { width: 400, height: 300 }, dragging: false };
+    const [renamed] = syncFrameNodes([viewed], makeBoard({ frames: [frame("f1", { name: "Paiement" })] }));
+    expect(renamed?.measured).toEqual({ width: 400, height: 300 });
+    expect(renamed?.dragging).toBe(false);
+    expect(renamed?.data.name).toBe("Paiement");
+  });
+
   it("reprend la taille du tableau après un redimensionnement", () => {
     const [first] = syncFrameNodes([], makeBoard({ frames: [frame("f1")] }));
     if (first === undefined) throw new Error("nœud attendu");

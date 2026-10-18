@@ -2,6 +2,7 @@ import { BoardEditor } from "../canvas/BoardEditor";
 import { useBoardSession } from "../hooks/use-board-session";
 import { followLink } from "../navigation";
 import { BoardNameField } from "../panels/BoardNameField";
+import { HistoryButtons } from "../panels/HistoryButtons";
 import { SaveIndicator } from "../panels/SaveIndicator";
 import "./board-page.css";
 
@@ -18,6 +19,7 @@ export function BoardPage({ id }: { id: string }) {
         {session.phase === "notFound" && <h1>Tableau introuvable</h1>}
         {session.phase === "failed" && <p role="alert">Impossible d'ouvrir le tableau.</p>}
         {session.phase === "open" && <BoardNameField />}
+        {session.phase === "open" && <HistoryButtons />}
         {session.phase === "open" && <SaveIndicator status={sync} />}
       </header>
       {session.phase === "open" && <BoardEditor />}

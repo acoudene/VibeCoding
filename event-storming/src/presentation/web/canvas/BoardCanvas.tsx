@@ -9,37 +9,40 @@ import {
   useReactFlow,
   type EdgeChange,
   type NodeChange,
-  type OnConnect,
-  type OnConnectEnd,
-  type OnNodeDrag,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import type { Board } from "../../../domain/board/board";
 import type { Rect } from "../../../domain/board/geometry";
 import type { StickyKind } from "../../../domain/board/sticky-kind";
 import { useBoard } from "../hooks/use-board";
+import { useViewportMemory } from "../hooks/use-viewport-memory";
 import { SelectionPanel } from "../panels/SelectionPanel";
 import { selectedElement } from "../panels/selection";
 import { useServices } from "../services";
-import { commitDrag, connectStickies, editExistingSticky, renameFrame } from "./board-gestures";
+import { editExistingSticky, renameFrame } from "./board-gestures";
+import { isFrame, isSticky, type BoardNode } from "./board-node";
 import { FloatingEdgeView } from "./FloatingEdgeView";
 import { FrameDrawingLayer } from "./FrameDrawingLayer";
 import { FrameEditingContext, type FrameEditing } from "./frame-editing";
-import { memberPositionsDuringDrag, syncFrameNodes, type FrameNode } from "./frame-nodes";
+import { syncFrameNodes } from "./frame-nodes";
 import { FrameNodeView } from "./FrameNodeView";
 import { syncLinkEdges, type LinkEdge } from "./link-edges";
+import { selectOnly } from "./selection-gestures";
 import { StickyEditingContext, type StickyEditing } from "./sticky-editing";
-import { syncStickyNodes, type StickyNode } from "./sticky-nodes";
+import { syncStickyNodes } from "./sticky-nodes";
 import { stickyPositionCenteredOn } from "./sticky-placement";
 import { StickyNodeView } from "./StickyNodeView";
+import { useCanvasGestures } from "./use-canvas-gestures";
+import { ZoomControls } from "./ZoomControls";
 
 /** Hors du composant : xyflow exige des références stables. */
 const NODE_TYPES = { sticky: StickyNodeView, frame: FrameNodeView };
 const EDGE_TYPES = { floating: FloatingEdgeView };
-
-type BoardNode = StickyNode | FrameNode;
-
-const isSticky = (node: BoardNode): node is StickyNode => node.type === "sticky";
-const isFrame = (node: BoardNode): node is FrameNode => node.type === "frame";
+/** Glisser sur le fond trace un lasso ; le bouton du milieu (ou `Espace` maintenu) déplace la vue (FR-040, FR-050). */
+const PAN_ON_DRAG = [1];
+/** Assez bas pour « Ajuster à l'écran » un grand tableau, assez haut pour lire un post-it de près. */
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 4;
 
 export interface BoardCanvasProps {
   /** Type choisi dans la palette ; sans type actif, un clic sur le fond ne pose rien. */
@@ -58,22 +61,35 @@ export interface BoardCanvasProps {
  */
 export function BoardCanvas({ activeKind, onStickyPlaced, frameToolActive, onFrameToolDone }: BoardCanvasProps) {
   const board = useBoard();
-  const { placeSticky, editSticky, moveSticky, linkStickies, drawFrame, editFrame, currentBoard } = useServices();
+  const { placeSticky, editSticky, drawFrame, editFrame, currentBoard } = useServices();
   const { screenToFlowPosition } = useReactFlow();
+  const { opening, onMoveEnd } = useViewportMemory(board.id, board.stickies.length === 0 && board.frames.length === 0);
+  const paneRef = useRef<HTMLDivElement>(null);
   const [editingStickyId, setEditingStickyId] = useState<string | undefined>();
   const [editingFrameId, setEditingFrameId] = useState<string | undefined>();
+  /** Post-its créés par `Ctrl+D` / `Ctrl+V`, à sélectionner seuls dès qu'ils figurent dans le tableau affiché. */
+  const [createdToSelect, setCreatedToSelect] = useState<readonly string[] | undefined>();
   const [nodes, setNodes] = useState<BoardNode[]>(() => [...syncFrameNodes([], board), ...syncStickyNodes([], board)]);
   const [edges, setEdges] = useState<LinkEdge[]>(() => syncLinkEdges([], board));
 
-  useEffect(
-    () =>
+  const syncNodes = useCallback(
+    (shown: Board) =>
       setNodes((previous) => [
-        ...syncFrameNodes(previous.filter(isFrame), board, editingFrameId),
-        ...syncStickyNodes(previous.filter(isSticky), board, editingStickyId),
+        ...syncFrameNodes(previous.filter(isFrame), shown, editingFrameId),
+        ...syncStickyNodes(previous.filter(isSticky), shown, editingStickyId),
       ]),
-    [board, editingStickyId, editingFrameId],
+    [editingStickyId, editingFrameId],
   );
-  useEffect(() => setEdges((previous) => syncLinkEdges(previous, board)), [board]);
+
+  useEffect(() => {
+    syncNodes(board);
+    setEdges((previous) => syncLinkEdges(previous, board));
+    if (createdToSelect === undefined || !createdToSelect.every((id) => board.sticky(id) !== undefined)) return;
+    const selected = new Set(createdToSelect);
+    setNodes((previous) => selectOnly(previous, selected));
+    setEdges((previous) => selectOnly(previous, selected));
+    setCreatedToSelect(undefined);
+  }, [board, syncNodes, createdToSelect]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<BoardNode>[]) => setNodes((previous) => applyNodeChanges(changes, previous)),
@@ -83,6 +99,17 @@ export function BoardCanvas({ activeKind, onStickyPlaced, frameToolActive, onFra
     (changes: EdgeChange<LinkEdge>[]) => setEdges((previous) => applyEdgeChanges(changes, previous)),
     [],
   );
+
+  const gestures = useCanvasGestures({
+    nodes,
+    edges,
+    setNodes,
+    resyncNodes: () => syncNodes(currentBoard()),
+    selectCreated: (ids) => {
+      if (ids.length > 0) setCreatedToSelect(ids);
+    },
+    paneRef,
+  });
 
   const stickyEditing = useMemo<StickyEditing>(
     () => ({
@@ -121,44 +148,6 @@ export function BoardCanvas({ activeKind, onStickyPlaced, frameToolActive, onFra
     onFrameToolDone();
   }
 
-  const connect: OnConnect = (connection) => {
-    connectStickies({ board: currentBoard(), linkStickies }, connection.source, connection.target);
-  };
-
-  // Lâcher sur le corps d'un post-it (et non sur un de ses points) le relie aussi, comme dans Miro.
-  const connectOnNodeBody: OnConnectEnd = (event, connection) => {
-    if (connection.fromNode === null || connection.toHandle !== null) return;
-    const point = "changedTouches" in event ? event.changedTouches[0] : event;
-    if (point === undefined) return;
-    const targetId = document
-      .elementFromPoint(point.clientX, point.clientY)
-      ?.closest(".react-flow__node")
-      ?.getAttribute("data-id");
-    if (targetId !== null && targetId !== undefined) {
-      connectStickies({ board: currentBoard(), linkStickies }, connection.fromNode.id, targetId);
-    }
-  };
-
-  // Les membres d'un cadre glissé le suivent à l'écran ; le domaine les déplace à l'enregistrement.
-  const followFrame: OnNodeDrag<BoardNode> = (_event, _node, dragged) => {
-    const frames = dragged.filter(isFrame);
-    if (frames.length === 0) return;
-    const current = currentBoard();
-    const moved = new Map(frames.flatMap((frame) => [...memberPositionsDuringDrag(current, frame.id, frame.position)]));
-    const draggedIds = new Set(dragged.map((node) => node.id));
-    setNodes((previous) =>
-      previous.map((node) => {
-        const position = draggedIds.has(node.id) ? undefined : moved.get(node.id);
-        return position === undefined ? node : { ...node, position };
-      }),
-    );
-  };
-
-  // Un seul enregistrement par glissement, à la fin (pas à chaque image).
-  const commitDragged: OnNodeDrag<BoardNode> = (_event, _node, dragged) => {
-    commitDrag({ board: currentBoard(), moveSticky, editFrame }, dragged);
-  };
-
   const selection = selectedElement(nodes, edges);
   const classNames = ["board-canvas"];
   if (activeKind !== undefined) classNames.push("board-canvas--placing");
@@ -167,6 +156,7 @@ export function BoardCanvas({ activeKind, onStickyPlaced, frameToolActive, onFra
     <StickyEditingContext.Provider value={stickyEditing}>
       <FrameEditingContext.Provider value={frameEditing}>
         <ReactFlow<BoardNode, LinkEdge>
+          ref={paneRef}
           className={classNames.join(" ")}
           nodes={nodes}
           edges={edges}
@@ -178,18 +168,30 @@ export function BoardCanvas({ activeKind, onStickyPlaced, frameToolActive, onFra
           onNodeDoubleClick={(_event, node) =>
             node.type === "frame" ? setEditingFrameId(node.id) : setEditingStickyId(node.id)
           }
-          onNodeDrag={followFrame}
-          onNodeDragStop={commitDragged}
-          onConnect={connect}
-          onConnectEnd={connectOnNodeBody}
+          onNodeDrag={gestures.followFrame}
+          onNodeDragStop={gestures.commitDragged}
+          onConnect={gestures.connect}
+          onConnectEnd={gestures.connectOnNodeBody}
+          onPointerMove={gestures.trackPointer}
+          onMoveEnd={onMoveEnd}
           isValidConnection={(connection) => connection.source !== connection.target}
           connectionMode={ConnectionMode.Loose}
           zIndexMode="manual"
+          {...opening}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
+          selectionOnDrag
+          panOnDrag={PAN_ON_DRAG}
+          panActivationKeyCode="Space"
+          multiSelectionKeyCode="Shift"
+          zoomOnScroll
+          panOnScroll={false}
           deleteKeyCode={null}
           zoomOnDoubleClick={false}
           onlyRenderVisibleElements
         >
           <Background variant={BackgroundVariant.Lines} gap={40} />
+          <ZoomControls />
           {selection !== undefined && (
             <Panel position="top-right">
               <SelectionPanel selection={selection} onRenameFrame={setEditingFrameId} />

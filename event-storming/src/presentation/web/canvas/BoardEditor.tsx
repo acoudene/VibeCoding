@@ -5,13 +5,9 @@ import type { StickyKind } from "../../../domain/board/sticky-kind";
 import { Legend } from "../legend/Legend";
 import "../sticky-colors.css";
 import { BoardCanvas } from "./BoardCanvas";
+import { isTyping } from "./board-shortcuts";
 import "./board-editor.css";
 import { Palette } from "./Palette";
-
-/** Vrai si la touche est tapée dans un champ de saisie : elle ne doit alors déclencher aucun outil. */
-function isTyping(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-}
 
 /** Espace de travail du tableau ouvert : palette des types et outil cadre, canevas et légende. */
 export function BoardEditor() {

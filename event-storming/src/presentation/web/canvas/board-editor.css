@@ -188,3 +188,54 @@
   background: rgb(59 91 219 / 0.08);
   pointer-events: none;
 }
+
+/* Points de connexion placés juste à l'intérieur du post-it : ils ne couvrent pas la pointe d'un lien entrant. */
+.sticky-node__handle.react-flow__handle-top {
+  top: 12px;
+}
+
+.sticky-node__handle.react-flow__handle-bottom {
+  bottom: 12px;
+}
+
+.sticky-node__handle.react-flow__handle-left {
+  left: 12px;
+}
+
+.sticky-node__handle.react-flow__handle-right {
+  right: 12px;
+}
+
+/* Zoom par paliers, pourcentage, ajuster à l'écran (FR-051). */
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d0d4da;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  font-size: 14px;
+}
+
+.zoom-controls button {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.zoom-controls button:hover {
+  background: #f1f3f5;
+}
+
+.zoom-controls__percent {
+  min-width: 48px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

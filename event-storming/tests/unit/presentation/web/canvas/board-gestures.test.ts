@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { EditFrameCommand } from "../../../../../src/application/board/edit-frame";
 import type { EditStickyCommand } from "../../../../../src/application/board/edit-sticky";
 import type { LinkStickiesCommand } from "../../../../../src/application/board/link-stickies";
-import type { MoveStickyCommand } from "../../../../../src/application/board/move-sticky";
+import type { MoveElementsCommand } from "../../../../../src/application/board/move-elements";
 import { EmptyFrameNameError } from "../../../../../src/domain/board/errors";
 import {
   commitDrag,
@@ -57,35 +57,45 @@ describe("connectStickies", () => {
 });
 
 describe("commitDrag", () => {
-  it("enregistre une seule fois la fin du glissement : cadres d'abord (les membres suivent), puis post-its", () => {
-    const board = makeBoard({ stickies: [sticky("s1")], frames: [frame("f1", { rect: { x: 0, y: 0, width: 400, height: 300 } })] });
-    const order: string[] = [];
-    const moveSticky = recorder<MoveStickyCommand>(undefined);
-    const editFrame = recorder<EditFrameCommand>(undefined);
-    commitDrag(
+  it("enregistre la fin du glissement en un seul déplacement groupé : cadres par décalage, post-its par position", () => {
+    const board = makeBoard({
+      stickies: [sticky("s1"), sticky("s2")],
+      frames: [frame("f1", { rect: { x: 0, y: 0, width: 400, height: 300 } })],
+    });
+    const moveElements = recorder<MoveElementsCommand>(undefined);
+    const complete = commitDrag({ board, moveElements }, [
+      { id: "s1", type: "sticky", position: { x: 50, y: 60 } },
+      { id: "f1", type: "frame", position: { x: 30, y: -20 } },
+      { id: "s2", type: "sticky", position: { x: 500, y: 0 } },
+    ]);
+    expect(complete).toBe(true);
+    expect(moveElements.commands).toEqual([
       {
-        board,
-        moveSticky: { execute: (c) => (order.push("sticky"), moveSticky.execute(c)) },
-        editFrame: { execute: (c) => (order.push("frame"), editFrame.execute(c)) },
+        stickies: [
+          { id: "s1", to: { x: 50, y: 60 } },
+          { id: "s2", to: { x: 500, y: 0 } },
+        ],
+        frames: [{ id: "f1", dx: 30, dy: -20 }],
       },
-      [
-        { id: "s1", type: "sticky", position: { x: 50, y: 60 } },
-        { id: "f1", type: "frame", position: { x: 30, y: -20 } },
-      ],
-    );
-    expect(order).toEqual(["frame", "sticky"]);
-    expect(editFrame.commands).toEqual([{ frameId: "f1", action: "move", dx: 30, dy: -20 }]);
-    expect(moveSticky.commands).toEqual([{ id: "s1", to: { x: 50, y: 60 } }]);
+    ]);
   });
 
-  it("n'enregistre rien pour un cadre laissé en place ou disparu", () => {
+  it("n'enregistre rien pour un cadre laissé en place", () => {
+    const moveElements = recorder<MoveElementsCommand>(undefined);
     const board = makeBoard({ frames: [frame("f1")] });
-    const editFrame = recorder<EditFrameCommand>(undefined);
-    commitDrag({ board, moveSticky: recorder<MoveStickyCommand>(undefined), editFrame }, [
-      { id: "f1", type: "frame", position: { x: 0, y: 0 } },
+    expect(commitDrag({ board, moveElements }, [{ id: "f1", type: "frame", position: { x: 0, y: 0 } }])).toBe(true);
+    expect(moveElements.commands).toEqual([]);
+  });
+
+  it("ignore les éléments disparus pendant le glissement et le signale (la vue doit être resynchronisée)", () => {
+    const moveElements = recorder<MoveElementsCommand>(undefined);
+    const complete = commitDrag({ board: makeBoard({ stickies: [sticky("s1")] }), moveElements }, [
       { id: "gone", type: "frame", position: { x: 5, y: 5 } },
+      { id: "s1", type: "sticky", position: { x: 10, y: 0 } },
+      { id: "gone-too", type: "sticky", position: { x: 5, y: 5 } },
     ]);
-    expect(editFrame.commands).toEqual([]);
+    expect(complete).toBe(false);
+    expect(moveElements.commands).toEqual([{ stickies: [{ id: "s1", to: { x: 10, y: 0 } }], frames: [] }]);
   });
 });
 

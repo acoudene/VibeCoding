@@ -1,18 +1,24 @@
 import { createRoot } from "react-dom/client";
+import { CopySelection } from "./application/board/copy-selection";
 import { CreateBoard } from "./application/board/create-board";
 import { DeleteSelection } from "./application/board/delete-selection";
 import { DrawFrame } from "./application/board/draw-frame";
+import { DuplicateSelection } from "./application/board/duplicate-selection";
 import { EditFrame } from "./application/board/edit-frame";
 import { EditLink } from "./application/board/edit-link";
 import { EditSticky } from "./application/board/edit-sticky";
 import { LinkStickies } from "./application/board/link-stickies";
-import { MoveSticky } from "./application/board/move-sticky";
+import { MoveElements } from "./application/board/move-elements";
 import { OpenBoard } from "./application/board/open-board";
+import { PasteFragment } from "./application/board/paste-fragment";
 import { PlaceSticky } from "./application/board/place-sticky";
+import { Redo } from "./application/board/redo";
 import { RenameBoard } from "./application/board/rename-board";
+import { Undo } from "./application/board/undo";
 import { ForgetRecentBoard } from "./application/recent-boards/forget";
 import { ListRecentBoards } from "./application/recent-boards/list";
 import { LocalStorageRecentBoards } from "./infrastructure/browser/local-storage-recent-boards";
+import { LocalStorageViewports } from "./infrastructure/browser/local-storage-viewports";
 import { BatchedBoardSync } from "./infrastructure/http/batched-board-sync";
 import { HttpBoardGateway } from "./infrastructure/http/http-board-gateway";
 import { CryptoIdGenerator } from "./infrastructure/system/crypto-id-generator";
@@ -44,12 +50,20 @@ const services: Services = {
     }),
   placeSticky: new PlaceSticky(store, ids),
   editSticky: new EditSticky(store),
-  moveSticky: new MoveSticky(store),
+  moveElements: new MoveElements(store),
   deleteSelection: new DeleteSelection(store),
   linkStickies: new LinkStickies(store, ids),
   editLink: new EditLink(store),
   drawFrame: new DrawFrame(store, ids),
   editFrame: new EditFrame(store),
+  duplicateSelection: new DuplicateSelection(store, ids),
+  copySelection: new CopySelection(store),
+  pasteFragment: new PasteFragment(store, ids),
+  undo: new Undo(store),
+  redo: new Redo(store),
+  canUndo: () => store.canUndo(),
+  canRedo: () => store.canRedo(),
+  viewports: new LocalStorageViewports(),
   currentBoard: () => store.current(),
   onBoardChange: (listener) => store.onUpdate(() => listener()),
 };

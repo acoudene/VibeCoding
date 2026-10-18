@@ -24,7 +24,8 @@ const FRAME_NODE_STYLE = { pointerEvents: "none" } as const;
 /**
  * Nœuds xyflow des cadres, dans l'ordre du tableau, placés sous les liens et les post-its. Ce sont des nœuds
  * ordinaires (sans `parentId`) : l'appartenance d'un post-it reste calculée par le domaine (`frameOf`).
- * Le tableau fait foi pour la position et la taille ; la sélection est conservée ; un nœud inchangé est réutilisé.
+ * Le tableau fait foi pour la position et la taille ; l'état propre à la vue (sélection, mesures) est conservé ;
+ * un nœud inchangé est réutilisé.
  */
 export function syncFrameNodes(previous: readonly FrameNode[], board: Board, editingId?: string): FrameNode[] {
   const previousById = new Map(previous.map((node) => [node.id, node]));
@@ -33,6 +34,7 @@ export function syncFrameNodes(previous: readonly FrameNode[], board: Board, edi
     const editing = frame.id === editingId;
     if (node !== undefined && matches(node, frame, editing)) return node;
     return {
+      ...node,
       id: frame.id,
       type: "frame",
       position: { x: frame.rect.x, y: frame.rect.y },

@@ -38,6 +38,10 @@ export function FrameDrawingLayer({ onDraw, onCancel }: FrameDrawingLayerProps) 
       onPointerMove={(event) => {
         if (drag !== undefined) setDrag({ ...drag, current: { x: event.clientX, y: event.clientY } });
       }}
+      onPointerCancel={() => {
+        // Pointeur perdu (ex. geste système) : l'aperçu disparaît, rien n'est dessiné, l'outil reste armé.
+        setDrag(undefined);
+      }}
       onPointerUp={(event) => {
         if (drag === undefined) return;
         setDrag(undefined);
