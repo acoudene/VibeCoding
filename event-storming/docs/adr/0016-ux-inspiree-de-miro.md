@@ -1,6 +1,6 @@
 # ADR-0016 — UX inspirée de Miro
 
-- Statut : Proposé · Date : 2026-10-18 · Décideur : à valider
+- Statut : Accepté · Date : 2026-10-18 · Décideur : utilisateur
 
 ## Contexte
 Le sous-projet 001 a observé le comportement d'un tableau Miro (template Event Storming) avec REA et un script Playwright local (`docs/research/miro-observation.md`). Il faut décider quelles interactions le tableau MVP (sous-projet 002) reproduit, simplifie ou écarte.
