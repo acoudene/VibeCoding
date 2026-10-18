@@ -1,6 +1,6 @@
 # Spec 002 — Tableau MVP mono-utilisateur
 
-- Statut : Clarifiée
+- Statut : Validée
 - Contextes bornés : Board
 - Référence Event Storming / DDD : `docs/domain/README.md` (agrégat `Board`, grammaire « design level ») ; spec de design § 4.1, § 5 ; ADR-0012 (xyflow), ADR-0013 (Yjs), ADR-0016 (UX inspirée de Miro)
 
