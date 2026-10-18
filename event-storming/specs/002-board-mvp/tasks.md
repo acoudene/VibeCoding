@@ -7,9 +7,9 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T002 [outillage] Racines `src/main.*` autorisées par `.dependency-cruiser.cjs` ; fixture d'architecture : la présentation ne peut pas importer `src/infrastructure` (`tests/fixtures/architecture`, `tests/unit/architecture/dependency-rules.test.ts`)
 
 ## Domaine
-- [ ] T010 [P] [domaine] Tests rouges puis VO `BoardName` (défaut, refus du vide), `Position`, `Rect` (`board-name.ts`, `geometry.ts`)
-- [ ] T011 [P] [domaine] Tests rouges puis `classifyLink` et `expectedTargets` sur les 10 règles de la grammaire et le hors-grammaire (`grammar.ts`)
-- [ ] T012 [P] [domaine] Tests rouges puis `frameOf` (centre, cadres imbriqués → plus petit, aucun cadre) et `nextFrameName` (`frame.ts`)
+- [x] T010 [P] [domaine] Tests rouges puis VO `BoardName` (défaut, refus du vide), `Position`, `Rect` (`board-name.ts`, `geometry.ts`)
+- [x] T011 [P] [domaine] Tests rouges puis `classifyLink` et `expectedTargets` sur les 10 règles de la grammaire et le hors-grammaire (`grammar.ts`)
+- [x] T012 [P] [domaine] Tests rouges puis `frameOf` (centre, cadres imbriqués → plus petit, aucun cadre) et `nextFrameName` (`frame.ts`)
 - [ ] T013 [domaine] Tests rouges puis `Board` : création, `rename`, `addSticky`, `updateSticky`, `moveSticky`, `removeStickies` (cascade), avec leurs `BoardChange` (`board.ts`, `board-change.ts`, `sticky.ts`, `errors.ts`)
 - [ ] T014 [domaine] Tests rouges puis liens : `addLink` (refus boucle, post-it inconnu), `reverseLink`, `removeLink`, `outOfGrammar` dérivé et requalifié au changement de type (`board.ts`, `link.ts`)
 - [ ] T015 [domaine] Tests rouges puis cadres : `addFrame`, `updateFrame`, `moveFrame` (entraîne les membres), `removeFrame` (`board.ts`)
