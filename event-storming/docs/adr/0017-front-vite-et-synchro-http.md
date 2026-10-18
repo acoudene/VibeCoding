@@ -1,6 +1,6 @@
 # ADR-0017 — Front React + Vite, deux racines de composition, synchro HTTP par mises à jour Yjs
 
-- Statut : Proposé · Date : 2026-10-18 · Décideur : à valider
+- Statut : Accepté · Date : 2026-10-18 · Décideur : utilisateur
 
 ## Contexte
 Le sous-projet 002 ajoute une application web (React, ADR-0003 ; xyflow, ADR-0012) et un Worker (Hono, Durable Objects, ADR-0005). Les ADR existants ne fixent ni le bundler, ni l'organisation des points d'entrée, ni le protocole entre le navigateur et le Durable Object en mono-utilisateur.

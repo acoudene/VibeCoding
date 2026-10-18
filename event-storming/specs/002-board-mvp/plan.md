@@ -5,10 +5,10 @@ Entrées : `spec.md` (validée), `docs/domain/README.md` (modèle validé), `tes
 ## Contrôle constitution et ADR
 | Principe/ADR | Respecté ? | Justification / ADR proposé |
 |---|---|---|
-| Constitution 1 « N'invente rien » | Oui | Q1-Q4 et chevauchement des cadres tranchés par l'utilisateur ; choix techniques non couverts → ADR-0017 `Proposé` |
+| Constitution 1 « N'invente rien » | Oui | Q1-Q4 et chevauchement des cadres tranchés par l'utilisateur ; choix techniques non couverts → ADR-0017 (Accepté) |
 | Constitution 10 / ADR-0013 — tableau source de vérité, Yjs | Oui | Un `Y.Doc` par tableau ; le domaine produit des `BoardChange`, l'adaptateur Yjs les applique |
 | ADR-0002 gratuit / open source | Oui | Dépendances ajoutées, toutes sous licence libre : voir « Contrats externes » |
-| ADR-0003 TypeScript, React | Oui | React 19 + Vite (bundler : **ADR-0017 Proposé**) |
+| ADR-0003 TypeScript, React | Oui | React 19 + Vite (bundler : ADR-0017) |
 | ADR-0004 hexagonal | Oui | Le domaine n'importe ni Yjs, ni xyflow, ni React, ni Hono ; deux racines de composition (`src/main.worker.ts`, `src/main.web.tsx`) — **ADR-0017** |
 | ADR-0005 Cloudflare | Oui, partiel | Workers + Durable Objects en local (`wrangler dev`) ; **D1 non utilisé** en 002 (liste des tableaux locale, Q2) ; pas de déploiement (Q4) |
 | ADR-0006 LLM | n/a | Pas de LLM en 002 |
@@ -71,4 +71,4 @@ Entrées : `spec.md` (validée), `docs/domain/README.md` (modèle validé), `tes
 - **Durable Objects en local** : simulés par Miniflare (inclus dans `wrangler`), sans compte Cloudflare (Q4).
 
 ## Questions ouvertes
-- ADR-0017 (`Proposé`) à valider : React + Vite, deux racines de composition, protocole de synchro HTTP par mises à jour Yjs, D1 non utilisé en 002.
+- Aucune : plan et ADR-0017 validés par l'utilisateur (2026-10-18).

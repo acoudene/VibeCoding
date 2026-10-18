@@ -22,4 +22,4 @@ Une décision est **Acceptée** uniquement si l'utilisateur l'a prise explicitem
 | [0014](0014-contrat-domain-model-json.md) | Contrat d'export `domain-model.json` | Accepté |
 | [0015](0015-observation-miro-rea.md) | Observation de Miro avec REA | Accepté |
 | [0016](0016-ux-inspiree-de-miro.md) | UX inspirée de Miro | Accepté |
-| [0017](0017-front-vite-et-synchro-http.md) | Front React + Vite, deux racines de composition, synchro HTTP par mises à jour Yjs | Proposé |
+| [0017](0017-front-vite-et-synchro-http.md) | Front React + Vite, deux racines de composition, synchro HTTP par mises à jour Yjs | Accepté |
