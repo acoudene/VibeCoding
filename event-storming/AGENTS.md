@@ -31,7 +31,7 @@ Si une information métier, technique ou de périmètre manque ou est ambiguë :
 | Observation de Miro (REA), UX retenue | `docs/research/miro-observation.md`, ADR-0015, ADR-0016 |
 
 ## Commandes
-`npm run verify` = typecheck + tests unitaires + BDD + règles d'architecture + cohérence des fichiers d'agents. Doit être vert avant toute PR.
+`npm run verify` = typecheck + tests unitaires + tests Workers (Durable Object et API sous Miniflare, `test:workers`) + BDD + règles d'architecture + cohérence des fichiers d'agents. Doit être vert avant toute PR. E2E (hors `verify`) : `npm run test:e2e`.
 
 ## Agents et workflows
 Définitions canoniques dans `factory/agents/*.md` et `factory/workflows/*.md`. **Ne jamais éditer** les fichiers générés (`.claude/`, `.codex/`, `.gemini/`, `../.github/agents/es-*`, `../.github/prompts/es-*`, `../.github/instructions/event-storming.instructions.md`) : modifier la source puis `npm run factory:sync`.

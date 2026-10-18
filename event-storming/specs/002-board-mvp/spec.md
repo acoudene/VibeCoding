@@ -1,6 +1,7 @@
 # Spec 002 — Tableau MVP mono-utilisateur
 
 - Statut : Validée
+- Amendement 2026-10-18 : FR-004 (état d'erreur)
 - Contextes bornés : Board
 - Référence Event Storming / DDD : `docs/domain/README.md` (agrégat `Board`, grammaire « design level ») ; spec de design § 4.1, § 5 ; ADR-0012 (xyflow), ADR-0013 (Yjs), ADR-0016 (UX inspirée de Miro)
 
@@ -21,7 +22,7 @@ Pour conduire un atelier Event Storming sans Miro, un animateur a besoin d'un ta
 - **FR-001** Créer un tableau ; il reçoit un identifiant non devinable et s'ouvre à l'URL `/b/<id>` (spec de design § 5 « Accès MVP »).
 - **FR-002** Ouvrir un tableau existant par son URL ; une URL inconnue affiche « Tableau introuvable ».
 - **FR-003** L'état du tableau est conservé côté serveur et restauré à l'ouverture (ADR-0013 : un `Y.Doc` par tableau, Durable Object).
-- **FR-004** Les modifications sont envoyées au serveur sans action de l'utilisateur ; un indicateur affiche « Enregistré » / « Enregistrement… » / « Hors ligne ».
+- **FR-004** Les modifications sont envoyées au serveur sans action de l'utilisateur ; un indicateur affiche « Enregistré » / « Enregistrement… » / « Hors ligne » / « Erreur d'enregistrement ». *Amendement 2026-10-18 (arbitrage d'implémentation, à confirmer par l'utilisateur) : « Erreur d'enregistrement » signale un refus définitif du serveur (tableau introuvable, mise à jour refusée) ; aucun nouvel essai automatique, les modifications restent dans la page.*
 - **FR-005** La page d'accueil propose « Nouveau tableau » et liste les tableaux déjà ouverts **dans ce navigateur** (stockage local : nom, date de dernière ouverture), du plus récent au plus ancien ; on peut retirer un tableau de cette liste sans le supprimer côté serveur. *(Q2)*
 - **FR-006** Un tableau a un nom, modifiable depuis le tableau ; par défaut « Tableau sans titre ».
 

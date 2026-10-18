@@ -69,6 +69,7 @@ Entrées : `spec.md` (validée), `docs/domain/README.md` (modèle validé), `tes
 - **Cadres dans xyflow** : les groupes xyflow (`parentId`) imposent la hiérarchie à la vue ; on **ne les utilise pas** — l'appartenance reste calculée par le domaine (`frameOf`), le cadre est un nœud ordinaire placé dessous.
 - **E2E en CI** : Playwright + `wrangler dev` alourdissent la CI → job séparé `e2e`, hors `verify`.
 - **Durable Objects en local** : simulés par Miniflare (inclus dans `wrangler`), sans compte Cloudflare (Q4).
+- **`@cloudflare/vitest-pool-workers` déprécié** au profit de `@cloudflare/vitest-plugin` : il fonctionne encore pour `npm run test:workers` ; migration à prévoir ultérieurement (hors 002).
 
 ## Questions ouvertes
 - Aucune : plan et ADR-0017 validés par l'utilisateur (2026-10-18).

@@ -26,7 +26,7 @@ defaults:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,11 +35,10 @@ jobs:
           cache: npm
           cache-dependency-path: event-storming/package-lock.json
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run test:bdd
-      - run: npm run test:arch
-      - run: npm run factory:check
+      # Même commande qu'en local : typecheck, unitaires, Durable Object et API sous Miniflare (`test:workers`),
+      # BDD, règles d'architecture et cohérence des fichiers d'agents (`factory:check`).
+      - name: Vérification complète
+        run: npm run verify
 
   # Séparé de `verify` : Playwright et `wrangler dev` alourdissent la CI (plan 002, « Risques »).
   e2e:

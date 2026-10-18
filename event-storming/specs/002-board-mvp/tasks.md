@@ -46,5 +46,5 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T052 [ci] Job `e2e` dans `.github/workflows/event-storming-ci.yml` (installation des navigateurs Playwright), séparé de `verify`
 
 ## Vérification (`npm run verify`, revue)
-- [ ] T060 `npm run verify` et `npm run test:e2e` verts ; plus aucun scénario `@wip` dans `tests/bdd/features/board/`
-- [ ] T061 Phase 6 (`test-engineer`), phase 7 (`doc-writer` : `docs/domain/README.md` « Implémenté », README), phase 8 (workflow `review`)
+- [x] T060 `npm run verify` et `npm run test:e2e` verts ; plus aucun scénario `@wip` dans `tests/bdd/features/board/`
+- [x] T061 Phase 6 (`test-engineer`), phase 7 (`doc-writer` : `docs/domain/README.md` « Implémenté », README), phase 8 (workflow `review`)

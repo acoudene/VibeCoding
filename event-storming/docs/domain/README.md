@@ -5,7 +5,7 @@ Dérivé de la spec de design (`docs/superpowers/specs/2026-10-18-event-storming
 ## Sous-domaines et contextes bornés
 | Contexte | Type | Responsabilité | Implémenté |
 |---|---|---|---|
-| **Board** (Atelier) | Cœur | Tableau, post-its typés, liens, cadres ; grammaire Event Storming | Partiel (`StickyKind`, `stickyColor`) ; agrégat complet en spec 002 |
+| **Board** (Atelier) | Cœur | Tableau, post-its typés, liens, cadres ; grammaire Event Storming | Oui : agrégat `Board` complet (spec 002) |
 | **Modeling** (Modélisation) | Support | Dérivation déterministe d'un modèle DDD depuis un instantané ; anomalies ; export | Non (sous-projet 003) |
 
 ## Context map
@@ -41,7 +41,7 @@ Modeling ──(ACL)──▶ LLM externe (Ollama / tier gratuit / Claude option
 - `StickyKind`, `StickyColor` (implémentés).
 - `BoardSnapshot` (copie immuable du tableau), `DomainModel` (`schemaVersion`, `boundedContexts`, `contextMap`, `ubiquitousLanguage`, `anomalies`), `Anomaly`.
 - Service (Modeling) : `deriveDomainModel(boardSnapshot): DomainModel` — pur et déterministe.
-- Ports : `IdGenerator` (domaine) ; `BoardStore` (état d'un tableau ouvert, applique des `BoardChange`), `BoardHistory` (annuler/rétablir), `RecentBoards` (tableaux ouverts dans ce navigateur) — application, spec 002 ; `LlmPort` (004).
+- Ports : `IdGenerator` (domaine) ; application, spec 002 : `BoardStore` (état d'un tableau ouvert, applique des `BoardChange`), `BoardHistory` (annuler/rétablir), `BoardGateway` (serveur qui conserve les tableaux), `BoardSync` (synchronisation des modifications locales, expose un `SyncStatus`), `RecentBoards` (tableaux ouverts dans ce navigateur), `ViewportStore` (vue mémorisée par tableau, dans ce navigateur), `Clock` (heure courante) ; `LlmPort` (004). L'état sérialisé d'un tableau échangé par ces ports est un `BoardEncodedState` (octets opaques, état Yjs encodé), à ne pas confondre avec l'instantané `BoardSnapshot`.
 
 ## Langage ubiquitaire
 | Terme (FR) | Identifiant (EN) | Définition |
@@ -56,6 +56,7 @@ Modeling ──(ACL)──▶ LLM externe (Ollama / tier gratuit / Claude option
 | Appartenance à un cadre | `frameOf` | Un post-it appartient au cadre qui contient son centre |
 | Type actif | `activeKind` | Type choisi dans la palette, appliqué au prochain post-it posé (interface) |
 | Tableaux récents | `RecentBoards` | Tableaux déjà ouverts dans ce navigateur (nom, dernière ouverture) |
+| État de synchronisation | `SyncStatus` | État de l'enregistrement sur le serveur affiché par l'indicateur : « Enregistré » (`saved`), « Enregistrement… » (`saving`), « Hors ligne » (`offline`, nouvel essai automatique), « Erreur d'enregistrement » (`error`, refus définitif du serveur) |
 | Lien | `Link` | Relation orientée entre deux post-its |
 | Cadre | `Frame` | Zone délimitant un contexte borné |
 | Fragment copié | `BoardFragment` | Post-its et liens internes copiés, prêts à être collés ailleurs sur le tableau |
