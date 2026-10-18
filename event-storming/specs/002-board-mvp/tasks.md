@@ -29,7 +29,7 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T032 [P] [infrastructure] Tests rouges puis `LocalStorageRecentBoards` (tri, retrait, stockage indisponible ⇒ liste vide sans erreur)
 - [x] T033 [P] [infrastructure] Tests rouges puis `CryptoIdGenerator` (128 bits, base64url), `SystemClock`
 - [x] T034 [infrastructure] Tests Miniflare rouges puis `BoardDurableObject` (création, état initial, fusion des mises à jour, 404, 413, 400) (`tests/workers/board-durable-object.test.ts`)
-- [ ] T035 [infrastructure] Tests rouges puis `HttpBoardGateway` (regroupement 500 ms, nouvel essai avec attente croissante, état Enregistré / Enregistrement… / Hors ligne, `sendBeacon` à la fermeture)
+- [x] T035 [infrastructure] Tests rouges puis `HttpBoardGateway` (regroupement 500 ms, nouvel essai avec attente croissante, état Enregistré / Enregistrement… / Hors ligne, `sendBeacon` à la fermeture)
 
 ## Présentation
 - [ ] T040 [présentation] API Hono `/api/boards` (validation des identifiants et des tailles, codes HTTP du plan) + `src/main.worker.ts`
