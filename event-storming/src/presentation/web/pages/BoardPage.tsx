@@ -1,14 +1,9 @@
-import { useEffect, useState } from "react";
-import { BoardNotFoundError } from "../../../application/ports/board-gateway";
 import type { SyncStatus } from "../../../application/ports/board-sync";
-import { navigate } from "../navigation";
-import { useServices } from "../services";
-
-type State =
-  | { readonly phase: "loading" }
-  | { readonly phase: "notFound" }
-  | { readonly phase: "failed" }
-  | { readonly phase: "open"; readonly name: string };
+import { BoardEditor } from "../canvas/BoardEditor";
+import { useBoard } from "../hooks/use-board";
+import { useBoardSession } from "../hooks/use-board-session";
+import { followLink } from "../navigation";
+import "./board-page.css";
 
 const SYNC_LABELS: Record<SyncStatus, string> = {
   saved: "Enregistré",
@@ -17,62 +12,27 @@ const SYNC_LABELS: Record<SyncStatus, string> = {
   error: "Erreur d'enregistrement",
 };
 
-/** Page d'un tableau. Emplacement provisoire : U12 y installe le canevas ; l'ouverture et la synchronisation restent ici. */
+/** Page d'un tableau : ouverture et synchronisation (`useBoardSession`), puis espace de travail. */
 export function BoardPage({ id }: { id: string }) {
-  const { openBoard, startSync } = useServices();
-  const [state, setState] = useState<State>({ phase: "loading" });
-  const [sync, setSync] = useState<SyncStatus>("saved");
-
-  useEffect(() => {
-    let cancelled = false;
-    let stop: (() => void) | undefined;
-    let flush: (() => void) | undefined;
-    openBoard
-      .execute({ id })
-      .then((opened) => {
-        if (cancelled) return;
-        const boardSync = startSync(opened.id);
-        const unsubscribe = boardSync.onStatusChange(setSync);
-        const onPageHide = () => boardSync.flushWithBeacon();
-        window.addEventListener("pagehide", onPageHide);
-        flush = onPageHide;
-        stop = () => {
-          unsubscribe();
-          boardSync.stop();
-        };
-        setSync(boardSync.status());
-        setState({ phase: "open", name: opened.name });
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) setState({ phase: error instanceof BoardNotFoundError ? "notFound" : "failed" });
-      });
-    return () => {
-      cancelled = true;
-      if (flush !== undefined) window.removeEventListener("pagehide", flush);
-      stop?.();
-    };
-  }, [id, openBoard, startSync]);
-
+  const { session, sync } = useBoardSession(id);
   return (
-    <main>
-      <a
-        href="/"
-        onClick={(event) => {
-          event.preventDefault();
-          navigate("/");
-        }}
-      >
-        Accueil
-      </a>
-      {state.phase === "loading" && <p>Chargement…</p>}
-      {state.phase === "notFound" && <h1>Tableau introuvable</h1>}
-      {state.phase === "failed" && <p role="alert">Impossible d'ouvrir le tableau.</p>}
-      {state.phase === "open" && (
-        <>
-          <h1>{state.name}</h1>
-          <p aria-live="polite">{SYNC_LABELS[sync]}</p>
-        </>
-      )}
+    <main className="board-page">
+      <header className="board-page__header">
+        <a href="/" onClick={followLink("/")}>
+          Accueil
+        </a>
+        {session.phase === "loading" && <p>Chargement…</p>}
+        {session.phase === "notFound" && <h1>Tableau introuvable</h1>}
+        {session.phase === "failed" && <p role="alert">Impossible d'ouvrir le tableau.</p>}
+        {session.phase === "open" && <BoardTitle />}
+        {session.phase === "open" && <p aria-live="polite">{SYNC_LABELS[sync]}</p>}
+      </header>
+      {session.phase === "open" && <BoardEditor />}
     </main>
   );
+}
+
+function BoardTitle() {
+  const { name } = useBoard();
+  return <h1 className="board-page__title">{name}</h1>;
 }

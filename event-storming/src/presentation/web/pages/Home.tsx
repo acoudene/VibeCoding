@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { navigate } from "../navigation";
+import { followLink, navigate } from "../navigation";
 import { toRecentBoardRows } from "../recent-boards-view";
 import { boardPath } from "../routes";
 import { useServices } from "../services";
@@ -41,13 +41,7 @@ export function Home() {
         <ul aria-label="Tableaux récents">
           {recent.map((row) => (
             <li key={row.id}>
-              <a
-                href={row.href}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigate(row.href);
-                }}
-              >
+              <a href={row.href} onClick={followLink(row.href)}>
                 {row.name}
               </a>{" "}
               <time dateTime={row.openedAtIso}>{row.openedAtLabel}</time>{" "}

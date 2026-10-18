@@ -1,12 +1,16 @@
 import { createRoot } from "react-dom/client";
 import { CreateBoard } from "./application/board/create-board";
+import { EditSticky } from "./application/board/edit-sticky";
+import { MoveSticky } from "./application/board/move-sticky";
 import { OpenBoard } from "./application/board/open-board";
+import { PlaceSticky } from "./application/board/place-sticky";
 import { RenameBoard } from "./application/board/rename-board";
 import { ForgetRecentBoard } from "./application/recent-boards/forget";
 import { ListRecentBoards } from "./application/recent-boards/list";
 import { LocalStorageRecentBoards } from "./infrastructure/browser/local-storage-recent-boards";
 import { BatchedBoardSync } from "./infrastructure/http/batched-board-sync";
 import { HttpBoardGateway } from "./infrastructure/http/http-board-gateway";
+import { CryptoIdGenerator } from "./infrastructure/system/crypto-id-generator";
 import { SystemClock } from "./infrastructure/system/system-clock";
 import { YjsBoardStore } from "./infrastructure/yjs/yjs-board-store";
 import { App } from "./presentation/web/App";
@@ -32,6 +36,11 @@ const services: Services = {
       beaconUrl: `${baseUrl}/api/boards/${id}/updates`,
       sendBeacon: (url, data) => navigator.sendBeacon(url, data),
     }),
+  placeSticky: new PlaceSticky(store, new CryptoIdGenerator()),
+  editSticky: new EditSticky(store),
+  moveSticky: new MoveSticky(store),
+  currentBoard: () => store.current(),
+  onBoardChange: (listener) => store.onUpdate(() => listener()),
 };
 
 const container = document.getElementById("root");
