@@ -1,6 +1,4 @@
 import type { DeleteSelectionCommand } from "../../../application/board/delete-selection";
-import type { EditFrameCommand } from "../../../application/board/edit-frame";
-import type { EditLinkCommand } from "../../../application/board/edit-link";
 import type { Board } from "../../../domain/board/board";
 import type { Position } from "../../../domain/board/geometry";
 import type { UseCase } from "./board-gestures";
@@ -30,26 +28,20 @@ export function selectionOf(
 }
 
 /**
- * `Suppr` (FR-041) : les post-its sélectionnés (et leurs liens, en cascade), puis les liens et les cadres sélectionnés
- * encore présents. Le tableau est relu après chaque étape : un lien déjà supprimé en cascade est ignoré.
+ * `Suppr` (FR-041) : la sélection encore présente au tableau, en un seul appel (une étape d'annulation).
+ * Renvoie faux s'il n'y avait rien à supprimer : la touche est alors laissée au navigateur.
  */
 export function deleteSelected(
-  deps: {
-    readonly currentBoard: () => Board;
-    readonly deleteSelection: UseCase<DeleteSelectionCommand>;
-    readonly editLink: UseCase<EditLinkCommand>;
-    readonly editFrame: UseCase<EditFrameCommand>;
-  },
+  deps: { readonly board: Board; readonly deleteSelection: UseCase<DeleteSelectionCommand> },
   selection: BoardSelection,
-): void {
-  const stickyIds = selection.stickyIds.filter((id) => deps.currentBoard().sticky(id) !== undefined);
-  if (stickyIds.length > 0) deps.deleteSelection.execute({ stickyIds });
-  for (const linkId of selection.linkIds) {
-    if (deps.currentBoard().link(linkId) !== undefined) deps.editLink.execute({ linkId, action: "remove" });
-  }
-  for (const frameId of selection.frameIds) {
-    if (deps.currentBoard().frames.some((f) => f.id === frameId)) deps.editFrame.execute({ frameId, action: "remove" });
-  }
+): boolean {
+  const { board } = deps;
+  const stickyIds = selection.stickyIds.filter((id) => board.sticky(id) !== undefined);
+  const linkIds = selection.linkIds.filter((id) => board.link(id) !== undefined);
+  const frameIds = selection.frameIds.filter((id) => board.frames.some((f) => f.id === id));
+  if (stickyIds.length === 0 && linkIds.length === 0 && frameIds.length === 0) return false;
+  deps.deleteSelection.execute({ stickyIds, linkIds, frameIds });
+  return true;
 }
 
 /** Sélectionne exactement `ids` (ex. les copies après `Ctrl+D` ou `Ctrl+V`) ; un élément inchangé est réutilisé. */

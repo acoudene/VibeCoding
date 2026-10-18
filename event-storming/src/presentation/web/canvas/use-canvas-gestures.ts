@@ -90,24 +90,36 @@ export function useCanvasGestures({ nodes, edges, setNodes, resyncNodes, selectC
     return selectionOf(nodes, edges).stickyIds.filter((id) => board.sticky(id) !== undefined);
   };
 
+  // Chaque action renvoie vrai si elle a traité la touche. Ctrl+D, Ctrl+Z et Ctrl+Y le sont toujours sur le tableau
+  // (pas de favori ni d'annulation du navigateur) ; Suppr, Ctrl+C et Ctrl+V seulement s'il y a de quoi agir.
   useBoardShortcuts({
-    delete: () => deleteSelected(services, selectionOf(nodes, edges)),
+    delete: () => deleteSelected({ board: currentBoard(), deleteSelection: services.deleteSelection }, selectionOf(nodes, edges)),
     duplicate: () => {
       const stickyIds = existingSelectedStickies();
       if (stickyIds.length > 0) selectCreated(services.duplicateSelection.execute({ stickyIds }).createdIds);
+      return true;
     },
     copy: () => {
       const stickyIds = existingSelectedStickies();
-      if (stickyIds.length > 0) clipboard.current = services.copySelection.execute({ stickyIds });
+      if (stickyIds.length === 0) return false;
+      clipboard.current = services.copySelection.execute({ stickyIds });
+      return true;
     },
     paste: () => {
       const pane = paneRef.current;
-      if (clipboard.current === undefined || pane === null) return;
+      if (clipboard.current === undefined || pane === null) return false;
       const at = screenToFlowPosition(pastePoint(pointer.current, pane.getBoundingClientRect()));
       selectCreated(services.pasteFragment.execute({ fragment: clipboard.current, at }).createdIds);
+      return true;
     },
-    undo: () => services.undo.execute(),
-    redo: () => services.redo.execute(),
+    undo: () => {
+      services.undo.execute();
+      return true;
+    },
+    redo: () => {
+      services.redo.execute();
+      return true;
+    },
   });
 
   return { connect, connectOnNodeBody, followFrame, commitDragged, trackPointer };

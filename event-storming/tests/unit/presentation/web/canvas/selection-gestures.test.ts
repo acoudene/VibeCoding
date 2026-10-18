@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { DeleteSelectionCommand } from "../../../../../src/application/board/delete-selection";
-import type { EditFrameCommand } from "../../../../../src/application/board/edit-frame";
-import type { EditLinkCommand } from "../../../../../src/application/board/edit-link";
-import type { Board } from "../../../../../src/domain/board/board";
 import {
   deleteSelected,
   pastePoint,
@@ -10,6 +7,11 @@ import {
   selectOnly,
 } from "../../../../../src/presentation/web/canvas/selection-gestures";
 import { frame, link, makeBoard, sticky } from "../board-fixture";
+
+function recorder<C>() {
+  const commands: C[] = [];
+  return { commands, execute: (command: C) => void commands.push(command) };
+}
 
 describe("selectionOf", () => {
   it("répartit les éléments sélectionnés en post-its, cadres et liens", () => {
@@ -24,38 +26,27 @@ describe("selectionOf", () => {
 });
 
 describe("deleteSelected", () => {
-  it("supprime les post-its (et leurs liens), puis les liens et cadres sélectionnés encore présents", () => {
-    let board: Board = makeBoard({
-      stickies: [sticky("a"), sticky("b"), sticky("c")],
-      links: [link("l1", "a", "b"), link("l2", "b", "c")],
+  it("supprime en un seul appel les post-its, liens et cadres sélectionnés encore présents", () => {
+    const board = makeBoard({
+      stickies: [sticky("a"), sticky("b")],
+      links: [link("l1", "a", "b")],
       frames: [frame("f1")],
     });
-    const calls: string[] = [];
-    deleteSelected(
-      {
-        currentBoard: () => board,
-        deleteSelection: {
-          execute(command: DeleteSelectionCommand) {
-            calls.push(`stickies:${command.stickyIds.join(",")}`);
-            board = makeBoard({ stickies: [sticky("b"), sticky("c")], links: [link("l2", "b", "c")], frames: [frame("f1")] });
-          },
-        },
-        editLink: { execute: (command: EditLinkCommand) => void calls.push(`link:${command.linkId}:${command.action}`) },
-        editFrame: { execute: (command: EditFrameCommand) => void calls.push(`frame:${command.frameId}:${command.action}`) },
-      },
-      { stickyIds: ["a"], linkIds: ["l1", "l2"], frameIds: ["f1", "gone"] },
-    );
-    expect(calls).toEqual(["stickies:a", "link:l2:remove", "frame:f1:remove"]);
+    const deleteSelection = recorder<DeleteSelectionCommand>();
+    deleteSelected({ board, deleteSelection }, { stickyIds: ["a", "gone"], linkIds: ["l1", "gone"], frameIds: ["f1", "gone"] });
+    expect(deleteSelection.commands).toEqual([{ stickyIds: ["a"], linkIds: ["l1"], frameIds: ["f1"] }]);
   });
 
-  it("ne fait rien sans sélection", () => {
-    const calls: string[] = [];
-    const record = { execute: () => void calls.push("call") };
-    deleteSelected(
-      { currentBoard: () => makeBoard(), deleteSelection: record, editLink: record, editFrame: record },
-      { stickyIds: [], linkIds: [], frameIds: [] },
-    );
-    expect(calls).toEqual([]);
+  it("ne fait rien sans sélection (la touche est laissée au navigateur)", () => {
+    const deleteSelection = recorder<DeleteSelectionCommand>();
+    expect(deleteSelected({ board: makeBoard(), deleteSelection }, { stickyIds: [], linkIds: ["gone"], frameIds: [] })).toBe(false);
+    expect(deleteSelection.commands).toEqual([]);
+  });
+
+  it("signale qu'il a traité la touche quand il supprime", () => {
+    const deleteSelection = recorder<DeleteSelectionCommand>();
+    const board = makeBoard({ stickies: [sticky("a")] });
+    expect(deleteSelected({ board, deleteSelection }, { stickyIds: ["a"], linkIds: [], frameIds: [] })).toBe(true);
   });
 });
 
