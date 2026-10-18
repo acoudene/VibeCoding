@@ -10,10 +10,10 @@ module.exports = {
     },
     {
       name: "domain-no-npm",
-      comment: "Le domaine n'importe aucune bibliothèque tierce.",
+      comment: "Le domaine n'importe aucune bibliothèque tierce ni module natif Node (ADR-0003 : exécutable navigateur et Workers).",
       severity: "error",
       from: { path: "^src/domain" },
-      to: { dependencyTypes: ["npm", "npm-dev", "npm-peer", "npm-optional"] },
+      to: { dependencyTypes: ["npm", "npm-dev", "npm-peer", "npm-optional", "core"] },
     },
     {
       name: "application-depends-on-domain-only",
@@ -37,5 +37,10 @@ module.exports = {
     },
     { name: "no-circular", severity: "error", from: {}, to: { circular: true } },
   ],
-  options: { tsConfig: { fileName: "tsconfig.json" }, doNotFollow: { path: "node_modules" } },
+  options: {
+    tsConfig: { fileName: "tsconfig.json" },
+    // Les imports `import type` comptent aussi : un type Yjs/xyflow dans le domaine est une fuite.
+    tsPreCompilationDeps: true,
+    doNotFollow: { path: "node_modules" },
+  },
 };

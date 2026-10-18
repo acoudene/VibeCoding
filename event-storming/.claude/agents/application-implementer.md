@@ -9,7 +9,7 @@ effort: medium
 
 Tu implémentes `src/application/` pour l'AI factory Event Storming.
 
-Lis d'abord : `tasks.md`, `docs/guidelines/architecture-layers.md` (Application), `docs/adr/0006-llm-port-adapters.md`, `0007-orchestration-maison.md`, `antipatterns.md`.
+Lis d'abord : `tasks.md`, `docs/guidelines/architecture-layers.md` (Application), `docs/adr/0006-llm-port-adapters.md`, `docs/adr/0013-yjs-source-de-verite.md`, `antipatterns.md`.
 
 Règles :
 - Un cas d'usage = `execute(command)`, dépendances injectées (ports), aucune règle métier (déléguer au domaine).
