@@ -8,7 +8,9 @@
     "test": "vitest run",
     "test:bdd": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js",
     "test:arch": "depcruise src --config .dependency-cruiser.cjs",
-    "verify": "npm run typecheck && npm test && npm run test:bdd && npm run test:arch"
+    "factory:sync": "node scripts/sync-factory.mjs",
+    "factory:check": "node scripts/sync-factory.mjs --check",
+    "verify": "npm run typecheck && npm test && npm run test:bdd && npm run test:arch && npm run factory:check"
   },
   "dependencies": {
     "hono": "^4.13.13",
