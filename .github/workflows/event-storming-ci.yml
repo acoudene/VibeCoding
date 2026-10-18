@@ -1,0 +1,42 @@
+name: event-storming-ci
+
+on:
+  pull_request:
+    paths:
+      - "event-storming/**"
+      - ".github/agents/es-*"
+      - ".github/prompts/es-*"
+      - ".github/instructions/event-storming.instructions.md"
+      - ".github/workflows/event-storming-ci.yml"
+  push:
+    branches: [main]
+    paths: ["event-storming/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: event-storming-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: event-storming
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: event-storming/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:bdd
+      - run: npm run test:arch
+      - run: npm run factory:check
