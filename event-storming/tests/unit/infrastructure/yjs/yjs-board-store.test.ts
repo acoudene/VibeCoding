@@ -10,7 +10,7 @@ import { describeBoardStoreContract } from "../board-store-contract";
 /** Les mises à jour Yjs sont des deltas : le serveur les fusionne pour obtenir l'état complet. */
 describeBoardStoreContract("YjsBoardStore", {
   create: () => new YjsBoardStore(),
-  snapshotAfter: (updates) => Y.mergeUpdates([...updates]),
+  encodedStateAfter: (updates) => Y.mergeUpdates([...updates]),
 });
 
 const id = boardId("b-1");

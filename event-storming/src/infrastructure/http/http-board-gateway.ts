@@ -1,5 +1,5 @@
 import { BoardNotFoundError, type BoardGateway } from "../../application/ports/board-gateway";
-import type { BoardSnapshot, BoardUpdate } from "../../application/ports/board-store";
+import type { BoardEncodedState, BoardUpdate } from "../../application/ports/board-store";
 import { boardId, type BoardId } from "../../domain/board/board";
 
 /** Réponse HTTP inattendue du serveur (hors 404 d'un tableau inconnu). */
@@ -31,7 +31,7 @@ export class HttpBoardGateway implements BoardGateway {
     return boardId(body.id);
   }
 
-  async open(id: BoardId): Promise<BoardSnapshot> {
+  async open(id: BoardId): Promise<BoardEncodedState> {
     const response = await this.fetchFn(this.boardUrl(id));
     if (response.status === 404) throw new BoardNotFoundError(id);
     if (response.status !== 200) throw new HttpBoardGatewayError(response.status);

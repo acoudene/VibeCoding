@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BoardHistory } from "../../../src/application/ports/board-history";
 import {
   NoOpenBoardError,
-  type BoardSnapshot,
+  type BoardEncodedState,
   type BoardStore,
   type BoardUpdate,
 } from "../../../src/application/ports/board-store";
@@ -13,7 +13,7 @@ import { sequentialIds } from "../domain/board/sequential-ids";
 export interface BoardStoreAdapter {
   create(): BoardStore & BoardHistory;
   /** État du tableau à rouvrir après avoir reçu, dans l'ordre, les mises à jour émises par `onUpdate`. */
-  snapshotAfter(updates: readonly BoardUpdate[]): BoardSnapshot;
+  encodedStateAfter(updates: readonly BoardUpdate[]): BoardEncodedState;
 }
 
 const id = boardId("b-1");
@@ -83,7 +83,7 @@ export function describeBoardStoreContract(name: string, adapter: BoardStoreAdap
       placeSticky(store, "Commande passée");
 
       const reopened = adapter.create();
-      reopened.load(id, adapter.snapshotAfter(updates));
+      reopened.load(id, adapter.encodedStateAfter(updates));
       expect(reopened.current()).toEqual(store.current());
     });
 
@@ -96,7 +96,7 @@ export function describeBoardStoreContract(name: string, adapter: BoardStoreAdap
       store.undo();
 
       const reopened = adapter.create();
-      reopened.load(id, adapter.snapshotAfter(updates));
+      reopened.load(id, adapter.encodedStateAfter(updates));
       expect(reopened.current()).toEqual(store.current());
     });
 
@@ -117,7 +117,7 @@ export function describeBoardStoreContract(name: string, adapter: BoardStoreAdap
       const store = adapter.create();
       const emitted: BoardUpdate[] = [];
       store.onUpdate((u) => emitted.push(u));
-      store.load(id, adapter.snapshotAfter(updates));
+      store.load(id, adapter.encodedStateAfter(updates));
       expect(emitted).toEqual([]);
     });
 

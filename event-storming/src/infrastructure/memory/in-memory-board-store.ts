@@ -1,14 +1,14 @@
 import type { BoardHistory } from "../../application/ports/board-history";
 import {
   NoOpenBoardError,
-  type BoardSnapshot,
+  type BoardEncodedState,
   type BoardStore,
   type BoardUpdate,
   type Unsubscribe,
 } from "../../application/ports/board-store";
 import { Board, type BoardId, type BoardState } from "../../domain/board/board";
 import type { BoardChange } from "../../domain/board/board-change";
-import { decodeBoard, encodeBoard } from "./board-snapshot-codec";
+import { decodeBoard, encodeBoard } from "./board-encoded-state-codec";
 import { applyBoardChange } from "./board-state-changes";
 
 /**
@@ -21,8 +21,8 @@ export class InMemoryBoardStore implements BoardStore, BoardHistory {
   private future: Board[] = [];
   private readonly listeners = new Set<(update: BoardUpdate) => void>();
 
-  load(id: BoardId, snapshot: BoardSnapshot): void {
-    this.board = decodeBoard(id, snapshot);
+  load(id: BoardId, state: BoardEncodedState): void {
+    this.board = decodeBoard(id, state);
     this.past = [];
     this.future = [];
   }
