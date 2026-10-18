@@ -73,6 +73,10 @@ Then("le tableau ne contient aucun lien", function (this: BoardWorld) {
   assert.deepEqual(this.store.current().links, []);
 });
 
+Then("le tableau contient {int} liens", function (this: BoardWorld, count: number) {
+  assert.equal(this.store.current().links.length, count);
+});
+
 Then("le tableau contient {int} post-its", function (this: BoardWorld, count: number) {
   assert.equal(this.store.current().stickies.length, count);
 });

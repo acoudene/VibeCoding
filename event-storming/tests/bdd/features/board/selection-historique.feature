@@ -1,5 +1,4 @@
 # language: fr
-@wip
 Fonctionnalité: Sélection, presse-papiers et historique
   (spec 002 : FR-041, FR-042, FR-043, FR-044 ; ADR-0016)
 

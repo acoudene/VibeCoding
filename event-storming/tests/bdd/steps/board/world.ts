@@ -6,8 +6,8 @@ import { OpenBoard } from "../../../../src/application/board/open-board";
 import { RenameBoard } from "../../../../src/application/board/rename-board";
 import { LinkStickies } from "../../../../src/application/board/link-stickies";
 import { PlaceSticky } from "../../../../src/application/board/place-sticky";
-import { boardId, type BoardId } from "../../../../src/domain/board/board";
-import type { Sticky } from "../../../../src/domain/board/sticky";
+import { boardId, type BoardFragment, type BoardId } from "../../../../src/domain/board/board";
+import { STICKY_SIZE, type Sticky } from "../../../../src/domain/board/sticky";
 import { STICKY_KINDS, type StickyKind } from "../../../../src/domain/board/sticky-kind";
 import { FixedClock } from "../../../../src/infrastructure/memory/fixed-clock";
 import { InMemoryBoardGateway } from "../../../../src/infrastructure/memory/in-memory-board-gateway";
@@ -37,6 +37,12 @@ export class BoardWorld extends World {
   /** Dernier post-it posé et dernier lien créé : « ce post-it », « ce lien ». */
   lastStickyId: string | undefined;
   lastLinkId: string | undefined;
+  /** État de l'interface, pas du domaine : post-its sélectionnés, presse-papiers et derniers post-its collés. */
+  selection: readonly string[] = [];
+  clipboard: BoardFragment | undefined;
+  pastedIds: readonly string[] = [];
+  /** Contenu du tableau juste avant « j'annule » : « le tableau est inchangé » le compare. */
+  contentBeforeUndo: string | undefined;
 
   private readonly boardIdsByName = new Map<string, BoardId>();
   private readonly pendingSync: Promise<void>[] = [];
@@ -109,6 +115,11 @@ export class BoardWorld extends World {
       targetId: this.stickyNamed(targetLabel).id,
     });
     this.lastLinkId = id;
+  }
+
+  /** Pose un post-it dont le centre est `center` (le cadre auquel il appartient en découle). */
+  placeStickyCentered(label: string, kind: StickyKind, center: { x: number; y: number }): string {
+    return this.placeSticky(label, kind, { x: center.x - STICKY_SIZE.width / 2, y: center.y - STICKY_SIZE.height / 2 });
   }
 
   /** Post-it désigné par son texte dans les scénarios. */

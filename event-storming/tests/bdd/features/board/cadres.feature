@@ -1,5 +1,4 @@
 # language: fr
-@wip
 Fonctionnalité: Cadres de contextes bornés
   Un cadre représente un contexte borné ; un post-it appartient au cadre qui contient son centre.
   (spec 002 : FR-030, FR-031, FR-032 ; docs/domain/README.md)

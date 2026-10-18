@@ -20,8 +20,8 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 - [x] T021 [application] Steps BDD + cas d'usage `CreateBoard`, `OpenBoard`, `RenameBoard`, `ListRecentBoards`, `ForgetRecentBoard` ; retirer `@wip` de `creation-tableau.feature`
 - [x] T022 [application] Steps BDD + `PlaceSticky`, `EditSticky`, `MoveSticky`, `DeleteSelection` ; retirer `@wip` de `post-its.feature`
 - [x] T023 [application] Steps BDD + `LinkStickies`, `EditLink` (inverser, supprimer) ; retirer `@wip` de `liens.feature`
-- [ ] T024 [application] Steps BDD + `DrawFrame`, `EditFrame` (renommer, redimensionner, déplacer, supprimer) ; retirer `@wip` de `cadres.feature`
-- [ ] T025 [application] Steps BDD + `DuplicateSelection`, `CopySelection`, `PasteFragment`, `Undo`, `Redo` ; retirer `@wip` de `selection-historique.feature`
+- [x] T024 [application] Steps BDD + `DrawFrame`, `EditFrame` (renommer, redimensionner, déplacer, supprimer) ; retirer `@wip` de `cadres.feature`
+- [x] T025 [application] Steps BDD + `DuplicateSelection`, `CopySelection`, `PasteFragment`, `Undo`, `Redo` ; retirer `@wip` de `selection-historique.feature`
 
 ## Infrastructure
 - [ ] T030 [P] [infrastructure] Tests rouges puis `YjsBoardStore` : `Y.Doc` ⇄ `Board` (schéma du plan), application des `BoardChange` en transactions d'origine locale ; aller-retour sans perte (`src/infrastructure/yjs/*`)
