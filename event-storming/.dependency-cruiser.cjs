@@ -30,10 +30,34 @@ module.exports = {
     },
     {
       name: "presentation-not-infrastructure",
-      comment: "Seule la racine de composition (src/main.ts) câble l'infrastructure.",
+      comment: "Seules les racines de composition (src/main.worker.ts, src/main.web.tsx) câblent l'infrastructure.",
       severity: "error",
       from: { path: "^src/presentation" },
       to: { path: "^src/(infrastructure|main)" },
+    },
+    {
+      name: "presentation-domain-only-from-web",
+      comment:
+        "ADR-0018 : seule l'application web (src/presentation/web) lit le domaine ; le reste de la présentation (API HTTP) passe par l'application.",
+      severity: "error",
+      from: { path: "^src/presentation", pathNot: "^src/presentation/web/" },
+      to: { path: "^src/domain" },
+    },
+    {
+      name: "presentation-web-domain-read-only",
+      comment:
+        "ADR-0018 : l'application web lit le domaine mais n'importe ni ses ports (IdGenerator) ni la modification élémentaire (BoardChange) ; " +
+        "toute modification passe par un cas d'usage. Le reste de la lecture seule (pas d'appel aux méthodes de Board qui modifient) relève de la revue.",
+      severity: "error",
+      from: { path: "^src/presentation/web/" },
+      to: { path: "^src/domain.*/(id-generator|board-change)[.]ts$" },
+    },
+    {
+      name: "infrastructure-only-from-composition-roots",
+      comment: "Seules les racines de composition (src/main.worker.ts, src/main.web.tsx) et l'infrastructure elle-même importent l'infrastructure.",
+      severity: "error",
+      from: { path: "^src", pathNot: "^src/(infrastructure/|main\\.(worker\\.ts|web\\.tsx)$)" },
+      to: { path: "^src/infrastructure" },
     },
     { name: "no-circular", severity: "error", from: {}, to: { circular: true } },
   ],

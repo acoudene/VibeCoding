@@ -1,0 +1,241 @@
+.board-editor {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.board-editor__canvas {
+  position: relative;
+  flex: 1;
+}
+
+.board-canvas--placing .react-flow__pane {
+  cursor: crosshair;
+}
+
+.board-editor__tools {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-right: 1px solid #d0d4da;
+  background: #ffffff;
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.swatch--frame {
+  border: 2px solid #868e96;
+  background: transparent;
+}
+
+.palette__button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.palette__button:hover {
+  background: #f1f3f5;
+}
+
+.palette__button[aria-pressed="true"] {
+  border-color: #3b5bdb;
+  background: #edf2ff;
+}
+
+.sticky-node {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  color: var(--sticky-text);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.18);
+}
+
+.react-flow__node.selected .sticky-node {
+  outline: 2px solid #3b5bdb;
+  outline-offset: 2px;
+}
+
+.sticky-node__text,
+.sticky-node__editor {
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: inherit;
+  line-height: 1.2;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sticky-node__text {
+  align-self: center;
+}
+
+.sticky-node__editor {
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  resize: none;
+  outline: none;
+}
+
+/* Points de connexion (FR-020) : visibles au survol ou à la sélection du post-it, et pendant une connexion. */
+.sticky-node__handle.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  background: #3b5bdb;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.react-flow__node:hover .sticky-node__handle,
+.react-flow__node.selected .sticky-node__handle,
+.react-flow.connecting .sticky-node__handle {
+  opacity: 1;
+}
+
+/* Liens (FR-020 à FR-022) : couleurs à garder alignées sur `link-edges.ts`. */
+.link-edge .react-flow__edge-path {
+  stroke: #495057;
+  stroke-width: 2;
+}
+
+.link-edge--out-of-grammar .react-flow__edge-path {
+  stroke: #e03131;
+  stroke-dasharray: 6 4;
+}
+
+.link-edge.selected .react-flow__edge-path {
+  stroke-width: 3.5;
+}
+
+/* Cadres (FR-030 à FR-032) : seuls le titre et les poignées captent le pointeur (fond traversable : `frame-nodes.ts`). */
+.frame-node {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: 2px solid #868e96;
+  border-radius: 4px;
+  background: rgb(248 249 250 / 0.6);
+}
+
+.react-flow__node-frame.selected .frame-node {
+  border-color: #3b5bdb;
+}
+
+.frame-node__title {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border-bottom: 1px solid #ced4da;
+  background: #e9ecef;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: grab;
+  pointer-events: all;
+}
+
+.frame-node__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.frame-node__name-editor {
+  width: 100%;
+  font: inherit;
+}
+
+.react-flow__node-frame .react-flow__resize-control {
+  pointer-events: all;
+}
+
+/* Outil cadre armé : la couche capte le glissement et affiche l'aperçu du rectangle. */
+.frame-drawing-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.frame-drawing-layer__preview {
+  position: absolute;
+  border: 2px dashed #3b5bdb;
+  background: rgb(59 91 219 / 0.08);
+  pointer-events: none;
+}
+
+/* Points de connexion placés juste à l'intérieur du post-it : ils ne couvrent pas la pointe d'un lien entrant. */
+.sticky-node__handle.react-flow__handle-top {
+  top: 12px;
+}
+
+.sticky-node__handle.react-flow__handle-bottom {
+  bottom: 12px;
+}
+
+.sticky-node__handle.react-flow__handle-left {
+  left: 12px;
+}
+
+.sticky-node__handle.react-flow__handle-right {
+  right: 12px;
+}
+
+/* Zoom par paliers, pourcentage, ajuster à l'écran (FR-051). */
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d0d4da;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  font-size: 14px;
+}
+
+.zoom-controls button {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.zoom-controls button:hover {
+  background: #f1f3f5;
+}
+
+.zoom-controls__percent {
+  min-width: 48px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

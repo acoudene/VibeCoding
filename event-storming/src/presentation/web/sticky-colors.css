@@ -1,0 +1,22 @@
+/* Couleurs des 9 types (StickyColor) ; toutes assez claires pour un texte noir (contraste ≥ 7:1). */
+:root {
+  --sticky-orange: #ffb35c;
+  --sticky-blue: #8fd0f7;
+  --sticky-pale-yellow: #fff7c2;
+  --sticky-yellow: #ffd84d;
+  --sticky-purple: #d4b5f2;
+  --sticky-green: #9fe0a5;
+  --sticky-pink: #f7b2d4;
+  --sticky-red: #ff9a9a;
+  --sticky-grey: #d3d7dc;
+  --sticky-text: #111111;
+}
+
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgb(0 0 0 / 0.25);
+  border-radius: 3px;
+}

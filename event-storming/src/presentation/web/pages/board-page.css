@@ -1,0 +1,24 @@
+.board-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, sans-serif;
+}
+
+.board-page__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #d0d4da;
+}
+
+.board-page__header > * {
+  margin: 0;
+}
+
+.history-buttons {
+  display: flex;
+  gap: 4px;
+}

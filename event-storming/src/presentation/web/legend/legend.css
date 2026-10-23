@@ -1,0 +1,32 @@
+.legend {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 5;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid #d0d4da;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.legend__title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.legend__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.6;
+}

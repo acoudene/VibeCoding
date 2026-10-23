@@ -26,17 +26,45 @@ defaults:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: event-storming/package-lock.json
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run test:bdd
-      - run: npm run test:arch
-      - run: npm run factory:check
+      # Même commande qu'en local : typecheck, unitaires, Durable Object et API sous Miniflare (`test:workers`),
+      # BDD, règles d'architecture et cohérence des fichiers d'agents (`factory:check`).
+      - name: Vérification complète
+        run: npm run verify
+
+  # Séparé de `verify` : Playwright et `wrangler dev` alourdissent la CI (plan 002, « Risques »).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: event-storming/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Tests de bout en bout
+        run: npm run test:e2e
+      # Mesure 300 post-its + 300 liens : les images par seconde sont journalisées, jamais bloquantes.
+      - name: Mesure de performance (non bloquante)
+        run: npm run test:e2e:perf
+        continue-on-error: true
+      - name: Rapport Playwright
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: |
+            event-storming/playwright-report/
+            event-storming/test-results/
+          retention-days: 7
