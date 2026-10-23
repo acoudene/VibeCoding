@@ -39,6 +39,22 @@ describe("règles d'architecture : sens des dépendances entre couches", () => {
   });
 
   it.each([
+    ["l'API HTTP importe le domaine", "src/presentation/api/imports-domain.ts", "presentation-domain-only-from-web"],
+    ["l'application web importe un port du domaine", "src/presentation/web/imports-domain-port.ts", "presentation-web-domain-read-only"],
+    ["l'application web importe la modification élémentaire du tableau", "src/presentation/web/imports-board-change.ts", "presentation-web-domain-read-only"],
+  ])("refuse que %s (exception ADR-0018 limitée)", (_label, file, rule) => {
+    const { status, output } = cruise(file);
+    expect(output).toContain(rule);
+    expect(status).not.toBe(0);
+  });
+
+  it("autorise l'application web à lire le domaine : objets-valeur, constantes, fonctions pures (ADR-0018)", () => {
+    const { status, output } = cruise("src/presentation/web/reads-domain.ts");
+    expect(output).not.toMatch(/error/i);
+    expect(status).toBe(0);
+  });
+
+  it.each([
     ["src/main.worker.ts"],
     ["src/main.web.tsx"],
   ])("autorise la racine de composition %s à importer l'infrastructure et la présentation", (file) => {

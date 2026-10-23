@@ -6,7 +6,8 @@ Chaque règle est **MUST** (bloquant en revue) ou **SHOULD**. Anti-patterns : `a
 ```
 presentation ─▶ application ─▶ domain
 infrastructure ─▶ application, domain
-main.ts (composition) ─▶ tout
+presentation/web ─▶ domain (lecture seule, ADR-0018)
+main.worker.ts, main.web.tsx (composition) ─▶ tout
 ```
 Appliqué par `.dependency-cruiser.cjs`.
 
@@ -36,12 +37,16 @@ Appliqué par `.dependency-cruiser.cjs`.
 
 ## Presentation (`src/presentation/`)
 **Rôle** : HTTP/WebSocket, validation d'entrée, mapping réponses.
-- MUST : valide toute entrée (Zod) ; code HTTP explicite ; pas de logique métier ; n'importe que l'application.
-- MUST : n'expose jamais d'objet de domaine brut ni de stack trace.
+- MUST : valide toute entrée (Zod) ; code HTTP explicite ; pas de logique métier ; n'importe que l'application (exception ci-dessous).
+- MUST : n'expose jamais d'objet de domaine brut ni de stack trace dans une réponse HTTP.
 - SHOULD : handlers fins (< 20 lignes).
+- Exception (ADR-0018) : l'application web (`src/presentation/web/`) peut importer le domaine **en lecture seule** : types, `Board` lu comme donnée, objets-valeur, constantes, fonctions pures (`frameOf`, `stickyColor`…), erreurs de domaine.
+  - MUST : toute modification du tableau passe par un cas d'usage ; la vue n'appelle aucune méthode de `Board` qui produit un nouvel état (`rename`, `addSticky`, `moveFrame`…) — vérifié en revue, pas par dependency-cruiser.
+  - MUST : la vue n'importe ni les ports du domaine (`IdGenerator`) ni `BoardChange` (règle `presentation-web-domain-read-only`).
+  - MUST : le reste de la présentation (`src/presentation/api/`) n'importe pas le domaine (règle `presentation-domain-only-from-web`).
 
-## Composition (`src/main.ts`)
-Seul endroit où `new` d'infrastructure est autorisé. Aucune logique.
+## Composition (`src/main.worker.ts`, `src/main.web.tsx`)
+Les deux racines de composition (ADR-0017) : seuls endroits où `new` d'infrastructure est autorisé. Aucune logique.
 
 ## Qualité transverse (règles pour les agents implémenteurs et relecteurs)
 - TypeScript `strict`, pas de `any`, pas de `as` hors frontière externe documentée.
