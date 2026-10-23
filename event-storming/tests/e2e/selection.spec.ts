@@ -39,7 +39,9 @@ test.describe("Sélection (FR-040)", () => {
   test("le lasso ne déplace pas la vue", async ({ page }) => {
     const { a } = await threeStickies(page);
     const before = await centerOf(a);
-    await drag(page, { x: 200, y: 500 }, { x: 300, y: 600 });
+    // Loin des bords du canevas (qui commence vers x = 164) : à moins de 40 px d'un bord, xyflow fait défiler
+    // la vue pendant le lasso (`autoPanOnSelection`), d'autant plus que la machine est lente.
+    await drag(page, { x: 300, y: 500 }, { x: 400, y: 600 });
     expect(await centerOf(a)).toEqual(before);
   });
 });
