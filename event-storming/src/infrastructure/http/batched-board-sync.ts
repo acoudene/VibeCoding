@@ -1,19 +1,21 @@
 import * as Y from "yjs";
-import { BoardNotFoundError, type BoardGateway } from "../../application/ports/board-gateway";
+import {
+  BoardGatewayUnavailableError,
+  BoardNotFoundError,
+  BoardUpdateRejectedError,
+  type BoardGateway,
+} from "../../application/ports/board-gateway";
 import type { BoardStore, BoardUpdate, Unsubscribe } from "../../application/ports/board-store";
 import type { BoardSync, SyncStatus } from "../../application/ports/board-sync";
 import type { BoardId } from "../../domain/board/board";
-import { HttpBoardGatewayError } from "./http-board-gateway";
 
 export const BATCH_WINDOW_MS = 500;
 export const MAX_RETRY_DELAY_MS = 10_000;
 
-/** Échec qui peut se résoudre en réessayant : réseau, 5xx, 408, 429. Les autres refus sont définitifs. */
+/** Échec qui peut se résoudre en réessayant (réseau inclus) ; tout refus définitif ou tableau introuvable : non. */
 function isTransient(error: unknown): boolean {
-  if (error instanceof BoardNotFoundError) return false;
-  if (error instanceof HttpBoardGatewayError) {
-    return error.status >= 500 || error.status === 408 || error.status === 429;
-  }
+  if (error instanceof BoardGatewayUnavailableError) return true;
+  if (error instanceof BoardNotFoundError || error instanceof BoardUpdateRejectedError) return false;
   return true;
 }
 

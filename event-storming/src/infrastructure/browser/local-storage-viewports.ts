@@ -1,15 +1,8 @@
 import type { Viewport, ViewportStore } from "../../application/ports/viewport-store";
 import type { BoardId } from "../../domain/board/board";
+import { defaultStorage } from "./safe-storage";
 
 const keyOf = (id: BoardId) => `es:viewport:${id}`;
-
-function defaultStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
-}
 
 /** Relit une vue stockée ; `undefined` si elle est invalide (stockage modifié à la main, ancienne version…). */
 function parseViewport(raw: unknown): Viewport | undefined {

@@ -4,8 +4,11 @@ import type { BoardGateway } from "../../../../src/application/ports/board-gatew
 import type { BoardUpdate } from "../../../../src/application/ports/board-store";
 import type { SyncStatus } from "../../../../src/application/ports/board-sync";
 import { boardId } from "../../../../src/domain/board/board";
-import { BoardNotFoundError } from "../../../../src/application/ports/board-gateway";
-import { HttpBoardGatewayError } from "../../../../src/infrastructure/http/http-board-gateway";
+import {
+  BoardGatewayUnavailableError,
+  BoardNotFoundError,
+  BoardUpdateRejectedError,
+} from "../../../../src/application/ports/board-gateway";
 import { BatchedBoardSync } from "../../../../src/infrastructure/http/batched-board-sync";
 
 const id = boardId("b-1");
@@ -249,10 +252,10 @@ describe("BatchedBoardSync", () => {
   describe("échecs transitoires et refus définitifs", () => {
     it.each([
       ["réseau", new TypeError("network")],
-      ["408", new HttpBoardGatewayError(408)],
-      ["429", new HttpBoardGatewayError(429)],
-      ["500", new HttpBoardGatewayError(500)],
-      ["503", new HttpBoardGatewayError(503)],
+      ["408", new BoardGatewayUnavailableError()],
+      ["429", new BoardGatewayUnavailableError()],
+      ["500", new BoardGatewayUnavailableError()],
+      ["503", new BoardGatewayUnavailableError()],
     ])("réessaie après un échec %s", async (_name, error) => {
       const { source, g, sync } = setup();
       source.edit();
@@ -265,8 +268,8 @@ describe("BatchedBoardSync", () => {
 
     it.each([
       ["404", new BoardNotFoundError("b-1")],
-      ["400", new HttpBoardGatewayError(400)],
-      ["413", new HttpBoardGatewayError(413)],
+      ["400", new BoardUpdateRejectedError()],
+      ["413", new BoardUpdateRejectedError("TOO_LARGE")],
     ])("passe en erreur sans réessayer après un refus %s", async (_name, error) => {
       const { source, g, sync, statuses } = setup();
       source.edit();
@@ -283,7 +286,7 @@ describe("BatchedBoardSync", () => {
       const { source, g, sync } = setup(beacon);
       source.edit();
       await vi.advanceTimersByTimeAsync(500);
-      await g.settle(0, "fail", new HttpBoardGatewayError(413));
+      await g.settle(0, "fail", new BoardUpdateRejectedError("TOO_LARGE"));
       source.edit();
       await vi.advanceTimersByTimeAsync(60_000);
       expect(g.sent).toHaveLength(1);

@@ -1,9 +1,16 @@
-import { env } from "cloudflare:test";
+import { env, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import type { BoardDurableObject } from "../../src/infrastructure/cloudflare/board-durable-object";
 
 const MAX_UPDATE_BYTES = 1_048_576;
+const MAX_STATE_BYTES = 1.5 * 1024 * 1024;
+
+function bigUpdate(key: string, bytes: number): Uint8Array {
+  const doc = new Y.Doc();
+  doc.getMap("stickies").set(key, "x".repeat(bytes));
+  return Y.encodeStateAsUpdate(doc);
+}
 
 function board(name: string): DurableObjectStub<BoardDurableObject> {
   return env.BOARD.get(env.BOARD.idFromName(name)) as DurableObjectStub<BoardDurableObject>;
@@ -64,6 +71,34 @@ describe("BoardDurableObject", () => {
     await stub.create();
     const before = await stub.getState();
     expect(await stub.applyUpdate(new Uint8Array(MAX_UPDATE_BYTES + 1))).toBe("TOO_LARGE");
+    expect(await stub.getState()).toEqual(before);
+  });
+
+  it("refuse une mise à jour qui ferait dépasser 1,5 Mio à l'état (413) sans toucher à l'état", async () => {
+    const stub = board("etat-plein");
+    await stub.create();
+    expect(await stub.applyUpdate(bigUpdate("a", 900_000))).toBe("OK");
+    const before = await stub.getState();
+    expect(before?.byteLength).toBeLessThan(MAX_STATE_BYTES);
+    expect(await stub.applyUpdate(bigUpdate("b", 900_000))).toBe("TOO_LARGE");
+    expect(await stub.getState()).toEqual(before);
+  });
+
+  it("répond un résultat explicite si l'écriture échoue, sans modifier l'état lu", async () => {
+    const stub = board("ecriture-ko");
+    await stub.create();
+    const before = await stub.getState();
+    const result = await runInDurableObject(stub, async (instance: BoardDurableObject, state) => {
+      const storage = state.storage;
+      const original = storage.put.bind(storage);
+      storage.put = (() => Promise.reject(new Error("disk"))) as typeof storage.put;
+      try {
+        return await instance.applyUpdate(nameUpdate("X"));
+      } finally {
+        storage.put = original;
+      }
+    });
+    expect(result).toBe("STORAGE_FAILED");
     expect(await stub.getState()).toEqual(before);
   });
 

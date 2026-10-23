@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { BoardNotFoundError } from "../../../../src/application/ports/board-gateway";
+import {
+  BoardGatewayUnavailableError,
+  BoardNotFoundError,
+  BoardUpdateRejectedError,
+} from "../../../../src/application/ports/board-gateway";
 import { boardId } from "../../../../src/domain/board/board";
-import { HttpBoardGateway, HttpBoardGatewayError } from "../../../../src/infrastructure/http/http-board-gateway";
+import { HttpBoardGateway } from "../../../../src/infrastructure/http/http-board-gateway";
 
 const id = boardId("b-1");
 
@@ -10,13 +14,13 @@ interface Call {
   init: RequestInit | undefined;
 }
 
-function gatewayAnswering(response: Response | Error) {
+function gatewayAnswering(response: Response | Error, timeoutMs?: number) {
   const calls: Call[] = [];
   const fetchFn: typeof fetch = (input, init) => {
     calls.push({ url: String(input), init });
     return response instanceof Error ? Promise.reject(response) : Promise.resolve(response);
   };
-  return { gateway: new HttpBoardGateway("http://x", fetchFn), calls };
+  return { gateway: new HttpBoardGateway("http://x", fetchFn, timeoutMs), calls };
 }
 
 describe("HttpBoardGateway", () => {
@@ -27,13 +31,13 @@ describe("HttpBoardGateway", () => {
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
-  it("rejette une création sans identifiant ou en erreur", async () => {
+  it("rejette une création sans identifiant (indisponible) ou en erreur", async () => {
     await expect(gatewayAnswering(Response.json({}, { status: 201 })).gateway.create()).rejects.toBeInstanceOf(
-      HttpBoardGatewayError,
+      BoardGatewayUnavailableError,
     );
-    await expect(gatewayAnswering(new Response(null, { status: 500 })).gateway.create()).rejects.toMatchObject({
-      status: 500,
-    });
+    await expect(gatewayAnswering(new Response(null, { status: 500 })).gateway.create()).rejects.toBeInstanceOf(
+      BoardGatewayUnavailableError,
+    );
   });
 
   it("ouvre un tableau : GET et octets de la réponse", async () => {
@@ -59,17 +63,43 @@ describe("HttpBoardGateway", () => {
     expect(calls[0]?.init?.body).toEqual(new Uint8Array([9]));
   });
 
-  it.each([400, 413, 500])("rejette une réponse %i avec une erreur typée", async (status) => {
+  it.each([408, 429, 500, 503])("traduit %i en erreur transitoire", async (status) => {
     const { gateway } = gatewayAnswering(new Response(null, { status }));
-    await expect(gateway.pushUpdate(id, new Uint8Array([1]))).rejects.toMatchObject({
-      name: "HttpBoardGatewayError",
-      status,
-    });
-    await expect(gateway.open(id)).rejects.toMatchObject({ status });
+    await expect(gateway.pushUpdate(id, new Uint8Array([1]))).rejects.toBeInstanceOf(BoardGatewayUnavailableError);
+    await expect(gateway.open(id)).rejects.toBeInstanceOf(BoardGatewayUnavailableError);
   });
 
-  it("laisse remonter l'échec réseau", async () => {
+  it.each([400, 403, 413])("traduit %i en refus définitif", async (status) => {
+    const { gateway } = gatewayAnswering(new Response(null, { status }));
+    await expect(gateway.pushUpdate(id, new Uint8Array([1]))).rejects.toBeInstanceOf(BoardUpdateRejectedError);
+    await expect(gateway.open(id)).rejects.toBeInstanceOf(BoardUpdateRejectedError);
+  });
+
+  it("distingue le tableau trop volumineux (413)", async () => {
+    const { gateway } = gatewayAnswering(new Response(null, { status: 413 }));
+    await expect(gateway.pushUpdate(id, new Uint8Array([1]))).rejects.toMatchObject({ reason: "TOO_LARGE" });
+  });
+
+  it("traduit l'échec réseau en erreur transitoire", async () => {
     const { gateway } = gatewayAnswering(new TypeError("network"));
-    await expect(gateway.pushUpdate(id, new Uint8Array([1]))).rejects.toThrow("network");
+    await expect(gateway.pushUpdate(id, new Uint8Array([1]))).rejects.toBeInstanceOf(BoardGatewayUnavailableError);
+    await expect(gateway.create()).rejects.toBeInstanceOf(BoardGatewayUnavailableError);
+    await expect(gateway.open(id)).rejects.toBeInstanceOf(BoardGatewayUnavailableError);
+  });
+
+  it("transmet un signal d'abandon à chaque appel", async () => {
+    const { gateway, calls } = gatewayAnswering(new Response(null, { status: 204 }));
+    await gateway.pushUpdate(id, new Uint8Array([1]));
+    expect(calls[0]?.init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("traduit un délai dépassé en erreur transitoire", async () => {
+    const fetchFn: typeof fetch = (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      });
+    const gateway = new HttpBoardGateway("http://x", fetchFn, 10);
+    await expect(gateway.open(id)).rejects.toBeInstanceOf(BoardGatewayUnavailableError);
+    await expect(gateway.pushUpdate(id, new Uint8Array([1]))).rejects.toBeInstanceOf(BoardGatewayUnavailableError);
   });
 });

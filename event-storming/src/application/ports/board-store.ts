@@ -7,7 +7,11 @@ import type { BoardChange } from "../../domain/board/board-change";
  */
 export type BoardEncodedState = Uint8Array;
 
-/** Modification locale sérialisée, à envoyer au serveur (`POST /api/boards/:id/updates`) ; opaque aussi. */
+/**
+ * Modification locale sérialisée, à envoyer au serveur (`POST /api/boards/:id/updates`). Contrat : mise à jour au
+ * format `Y.Doc` (Yjs), donc fusionnable (`Y.mergeUpdates`) et idempotente ; l'application ne l'interprète pas
+ * (aucun import de Yjs ici), seuls les adaptateurs la lisent.
+ */
 export type BoardUpdate = Uint8Array;
 
 export type Unsubscribe = () => void;

@@ -52,7 +52,7 @@ export interface BoardFragment {
 
 /** Résultat d'une création de post-its (dupliquer, coller). */
 export interface BoardCreationResult extends BoardResult {
-  readonly createdIds: string[];
+  readonly createdIds: readonly string[];
 }
 
 /** État complet d'un tableau, tel que reconstitué depuis un stockage. */
@@ -67,7 +67,7 @@ export interface BoardState {
 /** Résultat d'une opération : le nouveau tableau et les modifications appliquées (vide si rien n'a changé). */
 export interface BoardResult {
   readonly board: Board;
-  readonly changes: BoardChange[];
+  readonly changes: readonly BoardChange[];
 }
 
 /** Agrégat racine du contexte Board. Immuable : chaque opération renvoie un nouveau tableau. */

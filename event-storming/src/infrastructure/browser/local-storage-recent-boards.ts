@@ -1,16 +1,9 @@
 import type { RecentBoard, RecentBoards } from "../../application/ports/recent-boards";
 import { boardId, type BoardId } from "../../domain/board/board";
 import { boardName } from "../../domain/board/board-name";
+import { defaultStorage } from "./safe-storage";
 
 const STORAGE_KEY = "es:recent-boards";
-
-function defaultStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
-}
 
 /** Relit une entrée stockée ; `undefined` si elle est invalide (stockage modifié à la main, ancienne version…). */
 function parseEntry(raw: unknown): RecentBoard | undefined {

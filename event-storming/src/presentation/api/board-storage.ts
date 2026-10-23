@@ -1,5 +1,5 @@
 /** Résultat de la fusion d'une mise à jour dans l'état d'un tableau. */
-export type ApplyUpdateOutcome = "OK" | "NOT_FOUND" | "TOO_LARGE" | "UNREADABLE";
+export type ApplyUpdateOutcome = "OK" | "NOT_FOUND" | "TOO_LARGE" | "UNREADABLE" | "STORAGE_FAILED";
 
 /** Stockage des tableaux appelé par l'API ; adapté au Durable Object par `src/main.worker.ts`. */
 export interface BoardStorage {

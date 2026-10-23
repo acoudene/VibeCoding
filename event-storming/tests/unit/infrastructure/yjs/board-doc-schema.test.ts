@@ -8,10 +8,10 @@ import { sequentialIds } from "../../domain/board/sequential-ids";
 const id = boardId("b-1");
 
 /** Tableau d'exemple et les modifications qui l'ont construit, action par action. */
-function sample(): { board: Board; actions: BoardChange[][] } {
+function sample(): { board: Board; actions: (readonly BoardChange[])[] } {
   const ids = sequentialIds();
   let board = Board.create(id);
-  const actions: BoardChange[][] = [];
+  const actions: (readonly BoardChange[])[] = [];
   const steps = [
     (b: Board) => b.rename("Atelier"),
     (b: Board) => b.addSticky({ kind: "Command", position: { x: 0, y: 0 }, label: "Passer commande", notes: "n" }, ids),

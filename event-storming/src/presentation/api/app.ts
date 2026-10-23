@@ -76,6 +76,8 @@ export function createApi({ storage, generateId }: ApiDependencies): Hono {
         return tooLarge();
       case "UNREADABLE":
         return Response.json({ error: "UNREADABLE_UPDATE" }, { status: 400 });
+      case "STORAGE_FAILED":
+        return Response.json({ error: "STORAGE_UNAVAILABLE" }, { status: 503 });
     }
   });
 

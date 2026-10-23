@@ -1,5 +1,4 @@
 import * as Y from "yjs";
-import type { BoardHistory } from "../../application/ports/board-history";
 import { boardDocTypes, LOCAL_ORIGIN } from "./board-doc-schema";
 
 /**
@@ -7,7 +6,7 @@ import { boardDocTypes, LOCAL_ORIGIN } from "./board-doc-schema";
  * locale. `captureTimeout: 0` : deux actions, même enchaînées sans délai, restent deux étapes.
  * Ne suit que les modifications postérieures à sa création.
  */
-export class YjsBoardHistory implements BoardHistory {
+export class YjsBoardHistory {
   private readonly undoManager: Y.UndoManager;
 
   constructor(doc: Y.Doc) {

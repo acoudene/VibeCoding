@@ -92,6 +92,7 @@ describe("POST /api/boards/:id/updates", () => {
     ["NOT_FOUND", 404],
     ["TOO_LARGE", 413],
     ["UNREADABLE", 400],
+    ["STORAGE_FAILED", 503],
   ] as const)("traduit %s en %i", async (outcome, status) => {
     const { app, storage } = setup();
     storage.outcome = outcome;

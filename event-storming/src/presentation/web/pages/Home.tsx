@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createBoardErrorMessage } from "../create-board-error";
 import { followLink, navigate } from "../navigation";
 import { toRecentBoardRows } from "../recent-boards-view";
 import { boardPath } from "../routes";
@@ -16,8 +17,8 @@ export function Home() {
     try {
       const { id } = await createBoard.execute();
       navigate(boardPath(id));
-    } catch {
-      setError("Impossible de créer le tableau. Réessayez.");
+    } catch (caught) {
+      setError(createBoardErrorMessage(caught));
       setCreating(false);
     }
   }
