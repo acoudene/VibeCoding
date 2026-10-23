@@ -47,4 +47,5 @@ Format : `- [ ] T001 [P?] [couche] description (fichier)` — `[P]` = paralléli
 
 ## Vérification (`npm run verify`, revue)
 - [x] T060 `npm run verify` et `npm run test:e2e` verts ; plus aucun scénario `@wip` dans `tests/bdd/features/board/`
-- [x] T061 Phase 6 (`test-engineer`), phase 7 (`doc-writer` : `docs/domain/README.md` « Implémenté », README), phase 8 (workflow `review`)
+- [x] T061 Phase 6 (`test-engineer`), phase 7 (`doc-writer` : `docs/domain/README.md` « Implémenté », README)
+- [x] T062 Phase 8 (workflow `review`) : corrections de la revue (M1 plafond d'état, M3 délais réseau, M7 erreurs applicatives, ADR-0018, documentation) ; rapport collé dans la PR

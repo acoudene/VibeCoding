@@ -39,9 +39,9 @@ Entrées : `spec.md` (validée), `docs/domain/README.md` (modèle validé), `tes
 |---|---|---|
 | `POST` | `/api/boards` | `201 { id }` — crée le Durable Object du tableau (identifiant : 128 bits aléatoires, base64url) |
 | `GET` | `/api/boards/:id` | `200` état Yjs complet · `404 { error: "BOARD_NOT_FOUND" }` |
-| `POST` | `/api/boards/:id/updates` | `204` — fusionne la mise à jour dans l'état · `404` · `413` si > 1 Mio · `400` si mise à jour Yjs illisible |
+| `POST` | `/api/boards/:id/updates` | `204` — fusionne la mise à jour dans l'état · `404` · `413` si la mise à jour dépasse 1 Mio ou si l'état fusionné dépasserait 1,5 Mio (rien n'est écrit) · `400` si mise à jour Yjs illisible · `503 { error: "STORAGE_UNAVAILABLE" }` si l'écriture échoue (transitoire, nouvel essai) |
 
-**Synchronisation client** : les mises à jour locales du `Y.Doc` sont regroupées et envoyées toutes les 500 ms au plus (et à la fermeture de page via `sendBeacon`) ; en cas d'échec, nouvel essai avec attente croissante, indicateur « Hors ligne » (FR-004). Le serveur ne fait que fusionner (`Y.applyUpdate`) : en mono-utilisateur, aucun conflit à arbitrer.
+**Synchronisation client** : les mises à jour locales du `Y.Doc` sont regroupées et envoyées toutes les 500 ms au plus (et à la fermeture de page via `sendBeacon`) ; en cas d'échec transitoire (réseau, délai dépassé, `5xx`, `408`, `429`), nouvel essai avec attente croissante, indicateur « Hors ligne » ; en cas de refus définitif (`404`, `413`, autre `4xx`), aucun nouvel essai, indicateur « Erreur d'enregistrement » (FR-004). Chaque appel HTTP a un délai maximal. Le serveur ne fait que fusionner (`Y.applyUpdate`) : en mono-utilisateur, aucun conflit à arbitrer.
 
 **Schéma du `Y.Doc`** (`board-doc-schema.ts`) : `meta: Y.Map { name }`, `stickies: Y.Map<id, Y.Map{kind,label,identifier,notes,x,y}>`, `links: Y.Map<id, Y.Map{sourceId,targetId}>`, `frames: Y.Map<id, Y.Map{name,x,y,width,height}>`. Chaque `BoardChange` = une transaction Yjs d'origine locale ; `Y.UndoManager` suit cette origine (FR-044), une action utilisateur = une étape d'annulation.
 
@@ -69,7 +69,15 @@ Entrées : `spec.md` (validée), `docs/domain/README.md` (modèle validé), `tes
 - **Cadres dans xyflow** : les groupes xyflow (`parentId`) imposent la hiérarchie à la vue ; on **ne les utilise pas** — l'appartenance reste calculée par le domaine (`frameOf`), le cadre est un nœud ordinaire placé dessous.
 - **E2E en CI** : Playwright + `wrangler dev` alourdissent la CI → job séparé `e2e`, hors `verify`.
 - **Durable Objects en local** : simulés par Miniflare (inclus dans `wrangler`), sans compte Cloudflare (Q4).
-- **`@cloudflare/vitest-pool-workers` déprécié** au profit de `@cloudflare/vitest-plugin` : il fonctionne encore pour `npm run test:workers` ; migration à prévoir ultérieurement (hors 002).
+- **`@cloudflare/vitest-pool-workers` déprécié** au profit de `@cloudflare/vitest-plugin` : il fonctionne encore pour `npm run test:workers` ; migration à prévoir ultérieurement (hors 002). Il impose `vitest` 4 (dépendance pair) : `vitest` passe de `^5.0.3` à `^4.1.12`.
+- **Licences transitives** : `wrangler`/`miniflare` tirent `@img/sharp-*` (LGPL-3.0-or-later), outil de développement uniquement, non embarqué dans `dist/web` ; conforme à ADR-0002 (open source).
 
 ## Questions ouvertes
-- Aucune : plan et ADR-0017 validés par l'utilisateur (2026-10-18).
+- Aucune : plan et ADR-0017 validés par l'utilisateur (2026-10-18) ; amendements de la revue (Q5 à Q7, ADR-0017, ADR-0018 proposé) décidés le 2026-10-23.
+
+## Dette technique (revue de la PR, reportée avec l'accord de l'utilisateur)
+- `Board.restore` ne fait pas respecter les invariants : la lecture défensive est dans `board-doc-schema.ts` (nom de cadre vide accepté, nom du tableau non normalisé).
+- Règles d'ordre dans `DeleteSelection` et `MoveElements` à déplacer dans l'agrégat (`Board.removeSelection`, `Board.moveElements`).
+- Port de stockage serveur (`BoardStorage`) déclaré en présentation, adaptateur Durable Object dans `main.worker.ts`, API sans cas d'usage.
+- `BoardCanvas` et `BatchedBoardSync.send` à découper.
+- Limitation de débit de `POST /api/boards` et `/updates` à prévoir avant le déploiement (Q4).

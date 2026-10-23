@@ -17,6 +17,8 @@ Next.js (rendu serveur inutile pour un canvas, hébergement moins direct sur Clo
 ## Conséquences
 Deux `tsconfig` (Worker et web : DOM, JSX).
 
+*Amendement du 2026-10-18, accepté par l'utilisateur le 2026-10-23 (revue de la PR 002).*
+
 Fermeture de la page (US-6) : quand la page est masquée ou fermée (`visibilitychange` → `hidden`, `pagehide`), le texte en cours de saisie est validé puis tout ce qui n'est pas confirmé par le serveur est confié à `navigator.sendBeacon`, y compris en « Erreur d'enregistrement » ; tant que l'état n'est pas « Enregistré » (ou qu'une saisie en cours modifie le tableau), le navigateur demande confirmation avant de quitter (`beforeunload`). Risque résiduel, assumé : `sendBeacon` ne garantit que la mise en file, pas la réception. Sont perdues, sans que l'utilisateur puisse en être averti une fois la page fermée, les modifications non confirmées quand :
 - la page se ferme hors ligne ou alors que le serveur refuse les mises à jour (404, 413…) ;
 - la charge dépasse la limite de `sendBeacon` (64 Kio en attente, par exemple après une longue période hors ligne) : le navigateur refuse l'envoi ;

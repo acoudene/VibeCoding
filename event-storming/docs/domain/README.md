@@ -24,7 +24,7 @@ Modeling ──(ACL)──▶ LLM externe (Ollama / tier gratuit / Claude option
   - un lien hors grammaire est **accepté** mais marqué `outOfGrammar` (anomalie) — on ne bloque jamais l'atelier. `outOfGrammar` est **dérivé** des types des deux extrémités, jamais stocké : changer le type d'un post-it requalifie ses liens ;
   - supprimer un post-it supprime ses liens ; supprimer un cadre ne supprime pas ses post-its ;
   - un post-it appartient au cadre qui contient son centre ; déplacer un cadre déplace les post-its qui lui appartiennent au début du déplacement.
-  - cadres qui se chevauchent : un post-it dont le centre est dans plusieurs cadres appartient au **plus petit** (décision utilisateur, spec 002).
+  - cadres qui se chevauchent : un post-it dont le centre est dans plusieurs cadres appartient au **plus petit** (décision utilisateur, spec 002, Q5).
 - Grammaire « design level » des liens autorisés :
   - `Actor → Command`, `Command → Aggregate`, `Aggregate → DomainEvent`
   - `DomainEvent → Policy`, `Policy → Command`
@@ -37,7 +37,7 @@ Modeling ──(ACL)──▶ LLM externe (Ollama / tier gratuit / Claude option
 - `BoardId` (identifiant non devinable), `BoardName` (texte non vide après suppression des espaces ; défaut « Tableau sans titre »), `Position` (`x`, `y`), `Rect` (`x`, `y`, `width`, `height` > 0).
 - `BoardFragment` : fragment copié — post-its (type, texte, identifiant, notes, position relative au centre de la boîte englobante) et liens internes à la sélection ; collé par `paste(fragment, at)` avec de nouveaux identifiants.
 - `BoardChange` : modification élémentaire du tableau (`StickyAdded`, `StickyUpdated`, `StickyRemoved`, `LinkAdded`, `LinkReversed`, `LinkRemoved`, `FrameAdded`, `FrameUpdated`, `FrameRemoved`, `BoardRenamed`). C'est l'unité appliquée au stockage et à l'historique (annuler/rétablir).
-- Services (Board) : `classifyLink(source, target): "inGrammar" | "outOfGrammar"`, `frameOf(sticky, frames)`, `nextFrameName(frames)` (« Contexte N », N = nombre de cadres + 1).
+- Services (Board) : `classifyLink(source, target): "inGrammar" | "outOfGrammar"`, `frameOf(stickyCenter, frames)`, `nextFrameName(frames)` (« Contexte N », N = nombre de cadres + 1).
 - `StickyKind`, `StickyColor` (implémentés).
 - `BoardSnapshot` (copie immuable du tableau), `DomainModel` (`schemaVersion`, `boundedContexts`, `contextMap`, `ubiquitousLanguage`, `anomalies`), `Anomaly`.
 - Service (Modeling) : `deriveDomainModel(boardSnapshot): DomainModel` — pur et déterministe.
@@ -52,7 +52,7 @@ Modeling ──(ACL)──▶ LLM externe (Ollama / tier gratuit / Claude option
 | Couleur de post-it | `StickyColor` | Dérivée du type : orange (événement), bleu (commande), jaune pâle (acteur), jaune (agrégat), violet (policy), vert (read model), rose (système externe), rouge (hotspot), gris (règle) |
 | Nom du tableau | `BoardName` | Nom affiché du tableau ; « Tableau sans titre » par défaut |
 | Modification du tableau | `BoardChange` | Opération élémentaire appliquée au tableau ; unité d'enregistrement et d'annulation |
-| Lien hors grammaire | `Link.outOfGrammar` | Lien accepté mais non conforme à la grammaire « design level » ; dérivé des types |
+| Lien hors grammaire | `Board.isOutOfGrammar(link)` | Lien accepté mais non conforme à la grammaire « design level » ; dérivé des types |
 | Appartenance à un cadre | `frameOf` | Un post-it appartient au cadre qui contient son centre |
 | Type actif | `activeKind` | Type choisi dans la palette, appliqué au prochain post-it posé (interface) |
 | Tableaux récents | `RecentBoards` | Tableaux déjà ouverts dans ce navigateur (nom, dernière ouverture) |
